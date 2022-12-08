@@ -1,5 +1,5 @@
 cabal-version:      2.4
-name:               day3
+name:               day07
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
@@ -26,18 +26,18 @@ version:            0.1.0.0
 extra-source-files: CHANGELOG.md
 
 library
-    exposed-modules:  Task1Lib, Task2Lib
+    exposed-modules: Task1Lib, Task2Lib
 
     -- Modules included in this library but not exported.
     other-modules: UtilLib
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.16.3.0
+    build-depends:    base ^>=4.16.3.0, split, containers
     hs-source-dirs:   src
     default-language: Haskell2010
 
-executable day3
+executable day07
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
@@ -47,7 +47,7 @@ executable day3
     -- other-extensions:
     build-depends:
         base ^>=4.16.3.0,
-        day3
+        day07
 
     hs-source-dirs:   app
     default-language: Haskell2010
