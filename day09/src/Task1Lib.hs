@@ -12,7 +12,7 @@ taskFunc inputLines = do
     let commands = parseInputLines inputLines
     print commands
     putStrLn "Calculation result:"
-    let state = calcTailPosList (State [(0, 0)] (0, 0) (0, 0)) commands
+    let state = calcTailPosList [Position (0, 0) (0, 0)] commands
     print state
     putStrLn "Unique tail position list:"
     let uniqueTailPosList = calcUniqueTailPosList state
@@ -28,80 +28,89 @@ parseInputLines (line:lines) = command:parseInputLines lines
     where command = (head $ head splitted, readInt $ last splitted)
           splitted = splitOn " " line
 
-calcUniqueTailPosList :: State -> [(Int, Int)]
+calcUniqueTailPosList :: [Position] -> [(Int, Int)]
 
-calcUniqueTailPosList (State tailPosList _ _) = nub tailPosList
+calcUniqueTailPosList positions = nub $ map tailPos positions
 
-calcTailPosList :: State -> [(Char, Int)] -> State
+calcTailPosList :: [Position] -> [(Char, Int)] -> [Position]
 
-calcTailPosList state [] = state
+calcTailPosList = foldl calcTailPosListSingleCommand
 
-calcTailPosList state (command:commands) = newState
-    where newState = calcTailPosList (calcTailPosListSingleCommand state command) commands
+calcTailPosListSingleCommand :: [Position] -> (Char, Int) -> [Position]
 
-calcTailPosListSingleCommand :: State -> (Char, Int) -> State
+calcTailPosListSingleCommand positions (_, 0) = positions
 
-calcTailPosListSingleCommand state (_, 0) = state
-
-calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('R', count) =
-    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('R', count - 1)
-    where newHeadPos = (newHeadX, newHeadY)
-          newTailPos = (newTailX, newTailY)
+calcTailPosListSingleCommand (position:positions) ('R', count) =
+    calcTailPosListSingleCommand (newPosition:position:positions) ('R', count - 1)
+    where (Position (headX, headY) (tailX, tailY)) = position
           newHeadX = headX + 1
           newHeadY = headY
+          newHeadPos = (newHeadX, newHeadY)
+          tailShouldMove = calcTailShouldMove newHeadPos (tailX, tailY)
           newTailX
-            | tailX + 1 < newHeadX = tailX + 1
+            | tailShouldMove = tailX + 1
             | otherwise = tailX
           newTailY
-            | tailY < headY = tailY + 1
-            | tailY > headY = tailY - 1
+            | tailShouldMove && tailY < headY = tailY + 1
+            | tailShouldMove && tailY > headY = tailY - 1
             | otherwise = tailY
-          newTailPosList = newTailPos:tailPosList
-
-calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('L', count) =
-    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('L', count - 1)
-    where newHeadPos = (newHeadX, newHeadY)
           newTailPos = (newTailX, newTailY)
+          newPosition = Position newHeadPos newTailPos
+
+calcTailPosListSingleCommand (position:positions) ('L', count) =
+    calcTailPosListSingleCommand (newPosition:position:positions) ('L', count - 1)
+    where (Position (headX, headY) (tailX, tailY)) = position
           newHeadX = headX - 1
           newHeadY = headY
+          newHeadPos = (newHeadX, newHeadY)
+          tailShouldMove = calcTailShouldMove newHeadPos (tailX, tailY)
           newTailX
-            | tailX - 1 > newHeadX = tailX - 1
+            | tailShouldMove = tailX - 1
             | otherwise = tailX
           newTailY
-            | tailY < headY = tailY + 1
-            | tailY > headY = tailY - 1
+            | tailShouldMove && tailY < headY = tailY + 1
+            | tailShouldMove && tailY > headY = tailY - 1
             | otherwise = tailY
-          newTailPosList = newTailPos:tailPosList
-
-calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('D', count) =
-    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('D', count - 1)
-    where newHeadPos = (newHeadX, newHeadY)
           newTailPos = (newTailX, newTailY)
+          newPosition = Position newHeadPos newTailPos
+
+calcTailPosListSingleCommand (position:positions) ('D', count) =
+    calcTailPosListSingleCommand (newPosition:position:positions) ('D', count - 1)
+    where (Position (headX, headY) (tailX, tailY)) = position
           newHeadX = headX
           newHeadY = headY + 1
+          newHeadPos = (newHeadX, newHeadY)
+          tailShouldMove = calcTailShouldMove newHeadPos (tailX, tailY)
           newTailX
-            | tailX < headX = tailX + 1
-            | tailY > headX = tailX - 1
+            | tailShouldMove && tailX < headX = tailX + 1
+            | tailShouldMove && tailX > headX = tailX - 1
             | otherwise = tailX
           newTailY
-            | tailY + 1 < newHeadY = tailY + 1
+            | tailShouldMove = tailY + 1
             | otherwise = tailY
-          newTailPosList = newTailPos:tailPosList
-
-calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('U', count) =
-    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('U', count - 1)
-    where newHeadPos = (newHeadX, newHeadY)
           newTailPos = (newTailX, newTailY)
+          newPosition = Position newHeadPos newTailPos
+
+calcTailPosListSingleCommand (position:positions) ('U', count) =
+    calcTailPosListSingleCommand (newPosition:position:positions) ('U', count - 1)
+    where (Position (headX, headY) (tailX, tailY)) = position
           newHeadX = headX
           newHeadY = headY - 1
+          newHeadPos = (newHeadX, newHeadY)
+          tailShouldMove = calcTailShouldMove newHeadPos (tailX, tailY)
           newTailX
-            | tailX < headX = tailX + 1
-            | tailY > headX = tailX - 1
+            | tailShouldMove && tailX < headX = tailX + 1
+            | tailShouldMove && tailX > headX = tailX - 1
             | otherwise = tailX
           newTailY
-            | tailY - 1 > newHeadY = tailY - 1
+            | tailShouldMove = tailY - 1
             | otherwise = tailY
-          newTailPosList = newTailPos:tailPosList
+          newTailPos = (newTailX, newTailY)
+          newPosition = Position newHeadPos newTailPos
 
-data State = State {tailPosList :: [(Int, Int)], headPos :: (Int, Int), tailPos :: (Int, Int)}
+calcTailShouldMove :: (Int, Int) -> (Int, Int) -> Bool
+
+calcTailShouldMove (newHeadX, newHeadY) (tailX, tailY) = abs (newHeadX - tailX) > 1 || abs (newHeadY - tailY) > 1
+
+data Position = Position {headPos :: (Int, Int), tailPos :: (Int, Int)}
     deriving (Show, Eq)
