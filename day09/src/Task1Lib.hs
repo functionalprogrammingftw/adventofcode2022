@@ -1,4 +1,3 @@
-{-# LANGUAGE ViewPatterns #-}
 module Task1Lib (taskFunc) where
 
 import Data.List.Split (splitOn)
