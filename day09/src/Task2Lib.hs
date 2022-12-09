@@ -7,17 +7,16 @@ import qualified Data.Map (Map, empty, lookup, insert, foldr)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Commands:"
+--    putStrLn "Commands:"
     let commands = parseInputLines inputLines
-    print commands
-    putStrLn "Calculation result:"
-    let state = calcPositions initialPositions commands
-    print state
-    putStrLn "Unique tail position list:"
-    let uniqueTailPosList = calcUniqueTailPosList state
-    print uniqueTailPosList
+--    print commands
+--    putStrLn "Calculation result:"
+    let positions = calcPositions initialPositions commands
+--    print positions
+    putStrLn "Last position:"
+    print $ head positions
     putStrLn "Result:"
-    print $ length uniqueTailPosList
+    print $ length $ calcUniqueTailPosList positions
 
 parseInputLines :: [String] -> [(Char, Int)]
 
@@ -46,8 +45,8 @@ calcPositionsSingleCommand positions (move, count) = calcPositionsSingleCommand 
 calcPositionSingleMove :: Position -> Char -> Position
 calcPositionSingleMove (Position ((x, y):coords)) 'R' = calcPositionConsequencesSingleMove (Position ((x + 1, y):coords))
 calcPositionSingleMove (Position ((x, y):coords)) 'L' = calcPositionConsequencesSingleMove (Position ((x - 1, y):coords))
-calcPositionSingleMove (Position ((x, y):coords)) 'D' = calcPositionConsequencesSingleMove (Position ((x, y + 1):coords))
-calcPositionSingleMove (Position ((x, y):coords)) 'U' = calcPositionConsequencesSingleMove (Position ((x, y - 1):coords))
+calcPositionSingleMove (Position ((x, y):coords)) 'U' = calcPositionConsequencesSingleMove (Position ((x, y + 1):coords))
+calcPositionSingleMove (Position ((x, y):coords)) 'D' = calcPositionConsequencesSingleMove (Position ((x, y - 1):coords))
 
 calcPositionConsequencesSingleMove :: Position -> Position
 calcPositionConsequencesSingleMove (Position [updatedCoord]) = Position [updatedCoord]
@@ -57,10 +56,10 @@ calcPositionConsequencesSingleMove (Position (updatedCoord:nextCoord:coords)) = 
 
 calcUpdatedNextCoord :: (Int, Int) -> (Int, Int) -> (Int, Int)
 calcUpdatedNextCoord (updatedX, updatedY) (nextX, nextY)
-    | updatedX - nextX > 1 = (nextX + 1, calcCalibratedNextOther updatedY nextY)
-    | updatedX - nextX < -1 = (nextX - 1, calcCalibratedNextOther updatedY nextY)
-    | updatedY - nextY > 1 = (calcCalibratedNextOther updatedX nextX, nextY + 1)
-    | updatedY - nextY < -1 = (calcCalibratedNextOther updatedX nextX, nextY - 1)
+    | updatedX - nextX == 2 = (nextX + 1, calcCalibratedNextOther updatedY nextY)
+    | updatedX - nextX == -2 = (nextX - 1, calcCalibratedNextOther updatedY nextY)
+    | updatedY - nextY == 2 = (calcCalibratedNextOther updatedX nextX, nextY + 1)
+    | updatedY - nextY == -2 = (calcCalibratedNextOther updatedX nextX, nextY - 1)
     | otherwise = (nextX, nextY)
     where calcCalibratedNextOther updated next
             | updated > next = next + 1

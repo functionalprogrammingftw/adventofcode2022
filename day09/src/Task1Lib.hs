@@ -7,15 +7,15 @@ import qualified Data.Map (Map, empty, lookup, insert, foldr)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Commands:"
+    -- putStrLn "Commands:"
     let commands = parseInputLines inputLines
-    print commands
-    putStrLn "Calculation result:"
+    -- print commands
+    -- putStrLn "Calculation result:"
     let state = calcTailPosList [Position (0, 0) (0, 0)] commands
-    print state
-    putStrLn "Unique tail position list:"
+    -- print state
+    -- putStrLn "Unique tail position list:"
     let uniqueTailPosList = calcUniqueTailPosList state
-    print uniqueTailPosList
+    -- print uniqueTailPosList
     putStrLn "Result:"
     print $ length uniqueTailPosList
 
