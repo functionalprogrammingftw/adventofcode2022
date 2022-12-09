@@ -62,12 +62,10 @@ calcUpdatedNextCoord (updatedX, updatedY) (nextX, nextY)
     | updatedY - nextY > 1 = (calcCalibratedNextOther updatedX nextX, nextY + 1)
     | updatedY - nextY < -1 = (calcCalibratedNextOther updatedX nextX, nextY - 1)
     | otherwise = (nextX, nextY)
-
-calcCalibratedNextOther :: Int -> Int -> Int
-calcCalibratedNextOther updated next
-    | updated > next = next + 1
-    | updated < next = next - 1
-    | otherwise = next
+    where calcCalibratedNextOther updated next
+            | updated > next = next + 1
+            | updated < next = next - 1
+            | otherwise = next
 
 newtype Position = Position [(Int, Int)]
     deriving (Show, Eq)
