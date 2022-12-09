@@ -8,41 +8,100 @@ import qualified Data.Map (Map, empty, lookup, insert, foldr)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Tree grid:"
-    let treeGrid = parseInputLines inputLines
-    print treeGrid
-    putStrLn "Visibility grid:"
-    let visibilityGrid = calcAllVisible treeGrid treeGrid 0
-    print visibilityGrid
-    putStrLn "Number of visible trees:"
-    let count = UtilLib.countTrueGrid visibilityGrid
-    print count
+    putStrLn "Commands:"
+    let commands = parseInputLines inputLines
+    print commands
+    putStrLn "Calculation result:"
+    let state = calcTailPosList (State [(0, 0)] (0, 0) (0, 0)) commands
+    print state
+    putStrLn "Unique tail position list:"
+    let uniqueTailPosList = calcUniqueTailPosList state
+    print uniqueTailPosList
+    putStrLn "Result:"
+    print $ length uniqueTailPosList
 
-parseInputLines :: [[Char]] -> [[Int]]
-parseInputLines = map parseInputLine
+parseInputLines :: [String] -> [(Char, Int)]
 
-parseInputLine :: [Char] -> [Int]
-parseInputLine = map (\c -> readInt [c])
+parseInputLines [] = []
 
-calcAllVisible :: [[Int]] -> [[Int]] -> Int -> [[Bool]]
-calcAllVisible _ [] _ = []
-calcAllVisible treeGrid (treeRow:treeRows) y = calcAllRowVisible treeGrid treeRow (0, y):calcAllVisible treeGrid treeRows (y + 1)
+parseInputLines (line:lines) = command:parseInputLines lines
+    where command = (head $ head splitted, readInt $ last splitted)
+          splitted = splitOn " " line
 
-calcAllRowVisible :: [[Int]] -> [Int] -> (Int, Int) -> [Bool]
-calcAllRowVisible treeGrid [] _ = []
-calcAllRowVisible treeGrid (tree:trees) (x, y) =
-    (calcTreeVisible treeRow tree x || calcTreeVisible treeColumn tree y):calcAllRowVisible treeGrid trees (x + 1, y)
-    where treeRow = treeGrid !! y
-          treeColumn = [treeRow !! x | treeRow <- treeGrid]
+calcUniqueTailPosList :: State -> [(Int, Int)]
 
-calcTreeVisible :: [Int] -> Int -> Int -> Bool
-calcTreeVisible trees tree 0 = True
-calcTreeVisible trees tree pos =
-    allTreesLower (take pos trees) tree ||
-    allTreesLower (drop (pos + 1) trees) tree
+calcUniqueTailPosList (State tailPosList _ _) = nub tailPosList
 
-allTreesLower :: [Int] -> Int -> Bool
-allTreesLower [] _ = True
-allTreesLower (tree:trees) height
-    | tree < height = allTreesLower trees height
-    | otherwise = False
+calcTailPosList :: State -> [(Char, Int)] -> State
+
+calcTailPosList state [] = state
+
+calcTailPosList state (command:commands) = newState
+    where newState = calcTailPosList (calcTailPosListSingleCommand state command) commands
+
+calcTailPosListSingleCommand :: State -> (Char, Int) -> State
+
+calcTailPosListSingleCommand state (_, 0) = state
+
+calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('R', count) =
+    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('R', count - 1)
+    where newHeadPos = (newHeadX, newHeadY)
+          newTailPos = (newTailX, newTailY)
+          newHeadX = headX + 1
+          newHeadY = headY
+          newTailX
+            | tailX + 1 < newHeadX = tailX + 1
+            | otherwise = tailX
+          newTailY
+            | tailY < headY = tailY + 1
+            | tailY > headY = tailY - 1
+            | otherwise = tailY
+          newTailPosList = newTailPos:tailPosList
+
+calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('L', count) =
+    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('L', count - 1)
+    where newHeadPos = (newHeadX, newHeadY)
+          newTailPos = (newTailX, newTailY)
+          newHeadX = headX - 1
+          newHeadY = headY
+          newTailX
+            | tailX - 1 > newHeadX = tailX - 1
+            | otherwise = tailX
+          newTailY
+            | tailY < headY = tailY + 1
+            | tailY > headY = tailY - 1
+            | otherwise = tailY
+          newTailPosList = newTailPos:tailPosList
+
+calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('D', count) =
+    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('D', count - 1)
+    where newHeadPos = (newHeadX, newHeadY)
+          newTailPos = (newTailX, newTailY)
+          newHeadX = headX
+          newHeadY = headY + 1
+          newTailX
+            | tailX < headX = tailX + 1
+            | tailY > headX = tailX - 1
+            | otherwise = tailX
+          newTailY
+            | tailY + 1 < newHeadY = tailY + 1
+            | otherwise = tailY
+          newTailPosList = newTailPos:tailPosList
+
+calcTailPosListSingleCommand (State tailPosList (headX, headY) (tailX, tailY)) ('U', count) =
+    calcTailPosListSingleCommand (State newTailPosList newHeadPos newTailPos) ('U', count - 1)
+    where newHeadPos = (newHeadX, newHeadY)
+          newTailPos = (newTailX, newTailY)
+          newHeadX = headX
+          newHeadY = headY - 1
+          newTailX
+            | tailX < headX = tailX + 1
+            | tailY > headX = tailX - 1
+            | otherwise = tailX
+          newTailY
+            | tailY - 1 > newHeadY = tailY - 1
+            | otherwise = tailY
+          newTailPosList = newTailPos:tailPosList
+
+data State = State {tailPosList :: [(Int, Int)], headPos :: (Int, Int), tailPos :: (Int, Int)}
+    deriving (Show, Eq)

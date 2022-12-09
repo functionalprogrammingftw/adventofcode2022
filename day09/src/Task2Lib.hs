@@ -8,15 +8,8 @@ import qualified Data.Map (Map, empty, lookup, insert, foldr)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Tree grid:"
-    let treeGrid = parseInputLines inputLines
-    print treeGrid
-    putStrLn "Scenic score grid:"
-    let scenicScoreGrid = calcAllScenicScore treeGrid treeGrid 0
-    print scenicScoreGrid
-    putStrLn "Max scenic score:"
-    let max = maximum $ map maximum scenicScoreGrid
-    print max
+    putStrLn "Input:"
+    print inputLines
 
 parseInputLines :: [[Char]] -> [[Int]]
 parseInputLines = map parseInputLine
