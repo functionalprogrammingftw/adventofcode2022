@@ -14,7 +14,7 @@ taskFunc inputLines = do
     let sumCounts = calcSumCounts counts
     print sumCounts
     putStrLn "Signal strengths:"
-    let signalStrenths = findSignalStrengths [20, 60, 100, 140, 180, 220] sumCounts
+    let signalStrenths = findSignalStrengths sumCounts [20, 60, 100, 140, 180, 220]
     print $ sum signalStrenths
 
 parseInputLines :: [String] -> [Int]
@@ -26,9 +26,7 @@ parseInputLines (line:lines) = count:parseInputLines lines
             | otherwise = readInt $ last splitted
 
 findSignalStrengths :: [Int] -> [Int] -> [Int]
-findSignalStrengths [] sumCounts = []
-findSignalStrengths (x:xs) sumCounts = (x * (sumCounts !! (x - 1))):findSignalStrengths xs sumCounts
-
+findSignalStrengths sumCounts = map (\x -> x * (sumCounts !! (x - 1)))
 
 calcSumCounts :: [Int] -> [Int]
 calcSumCounts = reverse . subCalcSumCounts . reverse
