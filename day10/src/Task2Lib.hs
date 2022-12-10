@@ -32,7 +32,7 @@ printLines :: [String] -> IO ()
 printLines [] = do
     return ()
 printLines (str:strs) = do
-    print str
+    putStrLn str
     printLines strs
 
 calcPixels :: [(Int, [Int])] -> String
