@@ -7,15 +7,10 @@ import qualified Data.Map (Map, empty, lookup, insert, foldr)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Counts:"
-    let counts = parseInputLines inputLines
-    print counts
-    putStrLn "Sum counts:"
-    let sumCounts = calcSumCounts counts
-    print sumCounts
-    putStrLn "Signal strengths:"
-    let signalStrenths = findSignalStrengths [20, 60, 100, 140, 180, 220] sumCounts
-    print $ sum signalStrenths
+    putStrLn "Input lines:"
+    print inputLines
+
+
 
 parseInputLines :: [String] -> [Int]
 parseInputLines [] = []
