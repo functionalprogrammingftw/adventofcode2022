@@ -1,7 +1,25 @@
-module UtilLib (readInt, maximum3, sumTupleElements, splitEvery, tuplify2, elems, elemsOverlap, every, countTrue, countTrueGrid) where
+module UtilLib (
+    readInt,
+    readInteger,
+    maximum3,
+    sumTupleElements,
+    splitEvery,
+    tuplify2,
+    elems,
+    elemsOverlap,
+    every,
+    countTrue,
+    countTrueGrid,
+    replaceNth,
+    fpow,
+    primeFactors
+) where
 
 readInt :: String -> Int
 readInt = read
+
+readInteger :: String -> Integer
+readInteger = read
 
 maximum3 :: [Int] -> (Int, Int, Int)
 maximum3 = foldl maximum3Fold (0, 0, 0)
@@ -46,3 +64,18 @@ countTrue list = sum $ map fromEnum list
 
 countTrueGrid :: [[Bool]] -> Int
 countTrueGrid grid = sum $ map countTrue grid
+
+replaceNth :: Int -> a -> [a] -> [a]
+replaceNth _ _ [] = []
+replaceNth n newVal (x:xs)
+    | n == 0 = newVal:xs
+    | otherwise = x:replaceNth (n-1) newVal xs
+
+fpow 0 f = id
+fpow n f = f . fpow (n-1) f
+
+primeFactors n =
+  case factors of
+    [] -> [n]
+    _  -> factors ++ primeFactors (n `div` (head factors))
+  where factors = take 1 $ filter (\x -> (n `mod` x) == 0) [2 .. n-1]
