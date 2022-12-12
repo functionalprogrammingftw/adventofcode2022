@@ -3,94 +3,74 @@ module Task1Lib (taskFunc) where
 
 import Data.List.Split (splitOn, chunk)
 import UtilLib (every, readInt, countTrueGrid, replaceNth)
-import Data.List (nub, stripPrefix, insert, intercalate)
+import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
 import qualified Data.Map (Map, empty, lookup, insert, foldr)
+import Data.Char (ord)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Initial monkey states:"
-    let monkeyStates = parseInputLines inputLines
-    print monkeyStates
-    putStrLn "Monkey states after one round:"
-    print $ processRound monkeyStates
-    putStrLn "Monkey states after 20 rounds:"
-    let monkeyStatesAfter20Rounds = iterate processRound monkeyStates !! 20
-    print monkeyStatesAfter20Rounds
-    putStrLn "Inspections after 20 rounds:"
-    let inspectionsAfter20Rounds = map inspections monkeyStatesAfter20Rounds
-    print inspectionsAfter20Rounds
+    putStrLn "Height map:"
+    let heightMap = parseInputLines inputLines
+    print heightMap
+    putStrLn "Test:"
+    let unseenAccessible = getUnseenAccessibleCoords heightMap [Coord (1, 3)] (Coord (2, 3))
+    print unseenAccessible
+    putStrLn "Step count:"
+    let stepCount = calcStepCount heightMap
+    print stepCount
 
-data MonkeyState = MonkeyState {
-    name :: String,
-    items :: [Int],
-    operation :: String,
-    moduloTest :: Int,
-    ifTrue :: Int,
-    ifFalse :: Int,
-    inspections :: Int
+newtype Coord = Coord (Int, Int) deriving (Show, Eq)
+
+data HeightMap = HeightMap {
+    array :: [[Int]],
+    startCoord :: Coord,
+    endCoord :: Coord
 } deriving (Show, Eq)
 
-parseInputLines :: [String] -> [MonkeyState]
-parseInputLines inputLines = parseInputChunks $ splitOn [""] inputLines
+parseInputLines :: [String] -> HeightMap
+parseInputLines inputLines = HeightMap{array, startCoord, endCoord}
+    where array = map (map parseChar) inputLines
+          startCoord = findCoord inputLines 0 'S'
+          endCoord = findCoord inputLines 0 'E'
 
-parseInputChunks :: [[String]] -> [MonkeyState]
-parseInputChunks = map parseInputChunk
+parseChar :: Char -> Int
+parseChar c = case c of
+    'S' -> parseChar 'a'
+    'E' -> parseChar 'z'
+    _ -> ord c - ord 'a'
 
-parseInputChunk :: [String] -> MonkeyState
-parseInputChunk chunk = MonkeyState{ name, items, operation, moduloTest, ifTrue, ifFalse, inspections }
-    where name = init $ head chunk
-          items = map UtilLib.readInt (splitOn ", " $ drop 18 $ chunk !! 1)
-          operation = drop 23 $ chunk !! 2
-          moduloTest = UtilLib.readInt $ drop 21 $ chunk !! 3
-          ifTrue = UtilLib.readInt $ drop 29 $ chunk !! 4
-          ifFalse = UtilLib.readInt $ drop 30 $ chunk !! 5
-          inspections = 0
+findCoord :: [String] -> Int -> Char -> Coord
+findCoord (inputLine:inputLines) y c = case elemIndex c inputLine of
+    Just x -> Coord (x, y)
+    _ -> findCoord inputLines (y + 1) c
 
-processRound :: [MonkeyState] -> [MonkeyState]
-processRound = processRoundRecursive 0
+calcStepCount :: HeightMap -> Int
+calcStepCount heightMap = performSteps heightMap [] [startCoord heightMap] 0 
 
-processRoundRecursive :: Int -> [MonkeyState] -> [MonkeyState]
-processRoundRecursive monkeyNo monkeyStates
-    | monkeyNo >= length monkeyStates = monkeyStates
-    | otherwise = processRoundRecursive (monkeyNo + 1) $ processItems monkeyNo monkeyStates
+performSteps :: HeightMap -> [Coord] -> [Coord] -> Int -> Int
+performSteps heightMap seenCoords toVisitCoords stepNo
+    | endSeen = newStepNo
+    | otherwise = performSteps heightMap newSeenCoords newToVisitCoords newStepNo
+    where (newSeenCoords, newToVisitCoords, endSeen) = performStep heightMap seenCoords toVisitCoords
+          newStepNo = stepNo + 1
 
-processItems :: Int -> [MonkeyState] -> [MonkeyState]
-processItems monkeyNo monkeyStates = case monkeyItems of
-    [] -> monkeyStates
-    _ -> processItems monkeyNo $ processItem monkeyNo monkeyStates
-    where monkeyItems = items $ monkeyStates !! monkeyNo
+performStep :: HeightMap -> [Coord] -> [Coord] -> ([Coord], [Coord], Bool)
+performStep heightMap seenCoords toVisitCoords = (newSeenCoords, newToVisitCoords, endSeen)
+    where (newSeenCoords, newToVisitCoords) = visitCoords heightMap seenCoords [] toVisitCoords
+          endSeen = endCoord heightMap `elem` newSeenCoords
 
-processItem :: Int -> [MonkeyState] -> [MonkeyState]
-processItem monkeyNo monkeyStates = addMonkeyItem newMonkeyItem throwToMonkeyNo newMonkeyStates
-    where (monkeyItem, newMonkeyStates) = getMonkeyItem monkeyNo monkeyStates
-          monkeyState = newMonkeyStates !! monkeyNo
-          monkeyOperation = getMonkeyOperation monkeyState
-          newMonkeyItem = monkeyOperation monkeyItem `div` 3
-          throwToMonkeyNo
-            | newMonkeyItem `mod` moduloTest monkeyState == 0 = ifTrue monkeyState
-            | otherwise = ifFalse monkeyState
+visitCoords :: HeightMap -> [Coord] -> [Coord] -> [Coord] -> ([Coord], [Coord])
+visitCoords heightMap seenCoords newToVisitCoords [] = (seenCoords, newToVisitCoords)
+visitCoords heightMap seenCoords newToVisitCoords (visitCoord:remainingVisitCoords) =
+    visitCoords heightMap (seenCoords ++ unseenAccessibleCoords) (newToVisitCoords ++ unseenAccessibleCoords) remainingVisitCoords
+    where unseenAccessibleCoords = getUnseenAccessibleCoords heightMap seenCoords visitCoord
 
-getMonkeyItem :: Int -> [MonkeyState] -> (Int, [MonkeyState])
-getMonkeyItem monkeyNo monkeyStates = (monkeyItem, newMonkeyStates)
-    where oldMonkeyState = monkeyStates !! monkeyNo
-          monkeyItem = head $ items oldMonkeyState
-          newMonkeyItems = tail $ items oldMonkeyState
-          newInspections = inspections oldMonkeyState + 1
-          newMonkeyState = oldMonkeyState { items = newMonkeyItems, inspections = newInspections }
-          newMonkeyStates = UtilLib.replaceNth monkeyNo newMonkeyState monkeyStates
-
-addMonkeyItem :: Int -> Int -> [MonkeyState] -> [MonkeyState]
-addMonkeyItem monkeyItem monkeyNo monkeyStates = newMonkeyStates
-    where oldMonkeyState = monkeyStates !! monkeyNo
-          newMonkeyItems = items oldMonkeyState ++ [monkeyItem]
-          newMonkeyState = oldMonkeyState { items = newMonkeyItems}
-          newMonkeyStates = UtilLib.replaceNth monkeyNo newMonkeyState monkeyStates
-
-getMonkeyOperation :: MonkeyState -> Int -> Int
-getMonkeyOperation monkeyState
-    | stringOperand == "old" = \x -> x `realOperator` x
-    | otherwise = \x -> x `realOperator` UtilLib.readInt stringOperand
-    where [stringOperator, stringOperand] = splitOn " " $ operation monkeyState
-          realOperator
-            | stringOperator == "*" = (*)
-            | otherwise = (+)
+getUnseenAccessibleCoords :: HeightMap -> [Coord] -> Coord -> [Coord]
+getUnseenAccessibleCoords heightMap seenCoords (Coord (x, y)) = filter (`notElem` seenCoords) (accessibleUp ++ accessibleDown ++ accessibleLeft ++ accessibleRight)
+    where row = array heightMap !! y
+          column = [ row !! x | row <- array heightMap]
+          elevation = row !! x
+          accessibleUp = [ Coord (x, y - 1) | y > 0 && column !! (y - 1) <= elevation + 1 ]
+          accessibleDown = [ Coord (x, y + 1) | y + 1 < length column && column !! (y + 1) <= elevation + 1 ]
+          accessibleLeft = [ Coord (x - 1, y) | x > 0 && row !! (x - 1) <= elevation + 1 ]
+          accessibleRight = [ Coord (x + 1, y) | x + 1 < length row && row !! (x + 1) <= elevation + 1 ]
