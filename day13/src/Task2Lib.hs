@@ -31,7 +31,7 @@ data HeightMap = HeightMap {
 parseInputLines :: [String] -> HeightMap
 parseInputLines inputLines = HeightMap{array, startCoords, endCoord}
     where array = map (map parseChar) inputLines
-          startCoords = findCoords array 0 0
+          startCoords = findCoords array 0
           endCoord = findCoord inputLines 0 'E'
 
 parseChar :: Char -> Int
@@ -45,9 +45,8 @@ findCoord (inputLine:inputLines) y c = case elemIndex c inputLine of
     Just x -> Coord (x, y)
     _ -> findCoord inputLines (y + 1) c
 
-findCoords :: [[Int]] -> Int -> Int -> [Coord]
-findCoords [] y height = []
-findCoords (row:rows) y height = [ Coord (x, y) | (x, elemHeight) <- zip [0..] row, elemHeight == height ] ++ findCoords rows (y + 1) height
+findCoords :: [[Int]] -> Int -> [Coord]
+findCoords rows height = [ Coord (x, y) | (y, row) <- zip [0..] rows, (x, elemHeight) <- zip [0..] row, elemHeight == height ]
 
 calcStepCount :: HeightMap -> Int
 calcStepCount heightMap = minimum $ catMaybes $ calcStepCounts heightMap $ startCoords heightMap
