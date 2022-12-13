@@ -1,4 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
 module Task1Lib (taskFunc) where
 
 import Data.List.Split (splitOn, chunk)
@@ -6,14 +5,20 @@ import UtilLib (every, readInt, countTrueGrid, replaceNth)
 import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
 import qualified Data.Map (Map, empty, lookup, insert, foldr)
 import Data.Char (ord)
+import Data.Maybe (fromJust)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
     putStrLn "Input lines:"
     print inputLines
     putStrLn "Packet data pairs:"
-    let pairs = parseInputLines inputLines
-    printPairs pairs
+    let packetDataPairs = parseInputLines inputLines
+    printPairs packetDataPairs
+    putStrLn "Compare list:"
+    let compareList = comparePacketDataPairs packetDataPairs
+    print compareList
+    putStrLn "Count:"
+    print $ sumTrueIndices compareList
 
 data PacketData = PDInt Int | PDList [PacketData] deriving (Show, Eq)
 
@@ -22,6 +27,27 @@ printPairs [pair] = print pair
 printPairs (pair:pairs) = do
     print pair
     printPairs pairs
+
+sumTrueIndices :: [Bool] -> Int
+sumTrueIndices bools = sum [ index | (index, bool) <- zip [1..] bools, bool ]
+
+comparePacketDataPairs :: [(PacketData, PacketData)] -> [Bool]
+comparePacketDataPairs = map (fromJust . comparePacketDataPair)
+
+comparePacketDataPair :: (PacketData, PacketData) -> Maybe Bool
+comparePacketDataPair (PDInt leftInt, PDInt rightInt)
+    | leftInt < rightInt = Just True
+    | leftInt > rightInt = Just False
+    | otherwise = Nothing
+comparePacketDataPair (PDList [], PDList []) = Nothing
+comparePacketDataPair (PDList [], PDList (_:_)) = Just True
+comparePacketDataPair (PDList (_:_), PDList []) = Just False
+comparePacketDataPair (PDList (leftPacketData:leftRestList), PDList (rightPacketData:rightRestList)) =
+    case comparePacketDataPair (leftPacketData, rightPacketData) of
+        Nothing -> comparePacketDataPair (PDList leftRestList, PDList rightRestList)
+        justB -> justB
+comparePacketDataPair (PDList leftList, PDInt rightInt) = comparePacketDataPair (PDList leftList, PDList [PDInt rightInt])
+comparePacketDataPair (PDInt leftInt, PDList rightList) = comparePacketDataPair (PDList [PDInt leftInt], PDList rightList)
 
 parseInputLines :: [String] -> [(PacketData, PacketData)]
 parseInputLines inputLines = map parseInputLinePair inputLinePairs

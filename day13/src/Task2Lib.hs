@@ -1,84 +1,86 @@
-{-# LANGUAGE NamedFieldPuns #-}
 module Task2Lib (taskFunc) where
 
 import Data.List.Split (splitOn, chunk)
 import UtilLib (every, readInt, countTrueGrid, replaceNth)
-import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
+import Data.List (nub, stripPrefix, insert, intercalate, elemIndex, sortBy)
 import qualified Data.Map (Map, empty, lookup, insert, foldr)
 import Data.Char (ord)
-import Data.Maybe (catMaybes)
+import Data.Maybe (fromJust)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Height map:"
-    let heightMap = parseInputLines inputLines
-    print heightMap
-    putStrLn "Test:"
-    let unseenAccessible = getUnseenAccessibleCoords heightMap [Coord (1, 3)] (Coord (2, 3))
-    print unseenAccessible
-    putStrLn "Step count:"
-    let stepCount = calcStepCount heightMap
-    print stepCount
+    putStrLn "Input lines:"
+    print inputLines
+    let dividerPacket1 = PDList [PDList [PDInt 2]]
+    let dividerPacket2 = PDList [PDList [PDInt 6]]
+    putStrLn "Packet data list:"
+    let packetDataList = dividerPacket1:dividerPacket2:parseInputLines inputLines
+    print packetDataList
+    putStrLn "Sorted packet data list:"
+    let sortedPacketDataList = sortBy comparePacketData packetDataList
+    print sortedPacketDataList
+    putStrLn "Divider packet indices:"
+    let index1 = fromJust (elemIndex dividerPacket1 sortedPacketDataList) + 1
+    let index2 = fromJust (elemIndex dividerPacket2 sortedPacketDataList) + 1
+    print index1
+    print index2
+    putStrLn "Indices multiplied:"
+    print $ index1 * index2
 
-newtype Coord = Coord (Int, Int) deriving (Show, Eq)
+data PacketData = PDInt Int | PDList [PacketData] deriving (Show, Eq)
 
-data HeightMap = HeightMap {
-    array :: [[Int]],
-    startCoords :: [Coord],
-    endCoord :: Coord
-} deriving (Show, Eq)
+printPairs :: [(PacketData, PacketData)] -> IO ()
+printPairs [pair] = print pair
+printPairs (pair:pairs) = do
+    print pair
+    printPairs pairs
 
-parseInputLines :: [String] -> HeightMap
-parseInputLines inputLines = HeightMap{array, startCoords, endCoord}
-    where array = map (map parseChar) inputLines
-          startCoords = findCoords array 0
-          endCoord = findCoord inputLines 0 'E'
+sumTrueIndices :: [Bool] -> Int
+sumTrueIndices bools = sum [ index | (index, bool) <- zip [1..] bools, bool ]
 
-parseChar :: Char -> Int
-parseChar c = case c of
-    'S' -> parseChar 'a'
-    'E' -> parseChar 'z'
-    _ -> ord c - ord 'a'
+comparePacketData :: PacketData -> PacketData -> Ordering
+comparePacketData leftPacketData rightPacketData = case comparePacketDataPair (leftPacketData, rightPacketData) of
+    Just False -> GT
+    Just True -> LT
+    Nothing -> EQ
 
-findCoord :: [String] -> Int -> Char -> Coord
-findCoord (inputLine:inputLines) y c = case elemIndex c inputLine of
-    Just x -> Coord (x, y)
-    _ -> findCoord inputLines (y + 1) c
+comparePacketDataPair :: (PacketData, PacketData) -> Maybe Bool
+comparePacketDataPair (PDInt leftInt, PDInt rightInt)
+    | leftInt < rightInt = Just True
+    | leftInt > rightInt = Just False
+    | otherwise = Nothing
+comparePacketDataPair (PDList [], PDList []) = Nothing
+comparePacketDataPair (PDList [], PDList (_:_)) = Just True
+comparePacketDataPair (PDList (_:_), PDList []) = Just False
+comparePacketDataPair (PDList (leftPacketData:leftRestList), PDList (rightPacketData:rightRestList)) =
+    case comparePacketDataPair (leftPacketData, rightPacketData) of
+        Nothing -> comparePacketDataPair (PDList leftRestList, PDList rightRestList)
+        justB -> justB
+comparePacketDataPair (PDList leftList, PDInt rightInt) = comparePacketDataPair (PDList leftList, PDList [PDInt rightInt])
+comparePacketDataPair (PDInt leftInt, PDList rightList) = comparePacketDataPair (PDList [PDInt leftInt], PDList rightList)
 
-findCoords :: [[Int]] -> Int -> [Coord]
-findCoords rows height = [ Coord (x, y) | (y, row) <- zip [0..] rows, (x, elemHeight) <- zip [0..] row, elemHeight == height ]
+parseInputLines :: [String] -> [PacketData]
+parseInputLines inputLines = map parseInputLine $ filter (/= "") inputLines
 
-calcStepCount :: HeightMap -> Int
-calcStepCount heightMap = minimum $ catMaybes $ calcStepCounts heightMap $ startCoords heightMap
+parseInputLine :: String -> PacketData
+parseInputLine ('[':str) = packetData
+    where (_, packetData) = parsePacketData ('[':str)
 
-calcStepCounts :: HeightMap -> [Coord] -> [Maybe Int]
-calcStepCounts heightMap = map (\startCoord -> performSteps heightMap [] [startCoord] 0)
+parsePacketData :: String -> (String, PacketData)
+parsePacketData str = case str of
+    ('[':restStr) -> parsePDList restStr (PDList [])
+    (c:_) -> parsePDInt str (PDInt 0)
 
-performSteps :: HeightMap -> [Coord] -> [Coord] -> Int -> Maybe Int
-performSteps heightMap seenCoords toVisitCoords stepNo
-    | endSeen = Just newStepNo
-    | null toVisitCoords = Nothing
-    | otherwise = performSteps heightMap newSeenCoords newToVisitCoords newStepNo
-    where (newSeenCoords, newToVisitCoords, endSeen) = performStep heightMap seenCoords toVisitCoords
-          newStepNo = stepNo + 1
+parsePDList :: String -> PacketData -> (String, PacketData)
+parsePDList str currPdList = case (str, currPdList) of
+    (']':restStr, _) -> (restStr, currPdList)
+    (',':restStr, PDList currList) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
+        where (restStr2, packetData) = parsePacketData restStr
+    (_, PDList currList) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
+        where (restStr2, packetData) = parsePacketData str
 
-performStep :: HeightMap -> [Coord] -> [Coord] -> ([Coord], [Coord], Bool)
-performStep heightMap seenCoords toVisitCoords = (newSeenCoords, newToVisitCoords, endSeen)
-    where (newSeenCoords, newToVisitCoords) = visitCoords heightMap seenCoords [] toVisitCoords
-          endSeen = endCoord heightMap `elem` newSeenCoords
-
-visitCoords :: HeightMap -> [Coord] -> [Coord] -> [Coord] -> ([Coord], [Coord])
-visitCoords heightMap seenCoords newToVisitCoords [] = (seenCoords, newToVisitCoords)
-visitCoords heightMap seenCoords newToVisitCoords (visitCoord:remainingVisitCoords) =
-    visitCoords heightMap (seenCoords ++ unseenAccessibleCoords) (newToVisitCoords ++ unseenAccessibleCoords) remainingVisitCoords
-    where unseenAccessibleCoords = getUnseenAccessibleCoords heightMap seenCoords visitCoord
-
-getUnseenAccessibleCoords :: HeightMap -> [Coord] -> Coord -> [Coord]
-getUnseenAccessibleCoords heightMap seenCoords (Coord (x, y)) = filter (`notElem` seenCoords) (accessibleUp ++ accessibleDown ++ accessibleLeft ++ accessibleRight)
-    where row = array heightMap !! y
-          column = [ row !! x | row <- array heightMap]
-          elevation = row !! x
-          accessibleUp = [ Coord (x, y - 1) | y > 0 && column !! (y - 1) <= elevation + 1 ]
-          accessibleDown = [ Coord (x, y + 1) | y + 1 < length column && column !! (y + 1) <= elevation + 1 ]
-          accessibleLeft = [ Coord (x - 1, y) | x > 0 && row !! (x - 1) <= elevation + 1 ]
-          accessibleRight = [ Coord (x + 1, y) | x + 1 < length row && row !! (x + 1) <= elevation + 1 ]
+parsePDInt :: String -> PacketData -> (String, PacketData)
+parsePDInt str currPdInt = case (str, currPdInt) of
+    (']':_, _) -> (str, currPdInt)
+    (',':_, _) -> (str, currPdInt)
+    (c:restStr, PDInt currInt) -> parsePDInt restStr (PDInt (currInt * 10 + UtilLib.readInt [c]))
