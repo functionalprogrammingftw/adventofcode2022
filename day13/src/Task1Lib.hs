@@ -9,14 +9,14 @@ import Data.Maybe (fromJust)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Input lines:"
-    print inputLines
-    putStrLn "Packet data pairs:"
+    -- putStrLn "Input lines:"
+    -- print inputLines
+    -- putStrLn "Packet data pairs:"
     let packetDataPairs = parseInputLines inputLines
-    printPairs packetDataPairs
-    putStrLn "Compare list:"
+    -- printPairs packetDataPairs
+    -- putStrLn "Compare list:"
     let compareList = comparePacketDataPairs packetDataPairs
-    print compareList
+    -- print compareList
     putStrLn "Count:"
     print $ sumTrueIndices compareList
 

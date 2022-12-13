@@ -9,16 +9,16 @@ import Data.Maybe (fromJust)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Input lines:"
-    print inputLines
+    -- putStrLn "Input lines:"
+    -- print inputLines
     let dividerPacket1 = PDList [PDList [PDInt 2]]
     let dividerPacket2 = PDList [PDList [PDInt 6]]
-    putStrLn "Packet data list:"
+    -- putStrLn "Packet data list:"
     let packetDataList = dividerPacket1:dividerPacket2:parseInputLines inputLines
-    print packetDataList
-    putStrLn "Sorted packet data list:"
+    -- print packetDataList
+    -- putStrLn "Sorted packet data list:"
     let sortedPacketDataList = sortBy comparePacketData packetDataList
-    print sortedPacketDataList
+    -- print sortedPacketDataList
     putStrLn "Divider packet indices:"
     let index1 = fromJust (elemIndex dividerPacket1 sortedPacketDataList) + 1
     let index2 = fromJust (elemIndex dividerPacket2 sortedPacketDataList) + 1
