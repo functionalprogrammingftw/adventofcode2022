@@ -13,9 +13,15 @@ taskFunc inputLines = do
     print inputLines
     putStrLn "Packet data pairs:"
     let pairs = parseInputLines inputLines
-    print pairs
+    printPairs pairs
 
 data PacketData = PDInt Int | PDList [PacketData] deriving (Show, Eq)
+
+printPairs :: [(PacketData, PacketData)] -> IO ()
+printPairs [pair] = print pair
+printPairs (pair:pairs) = do
+    print pair
+    printPairs pairs
 
 parseInputLines :: [String] -> [(PacketData, PacketData)]
 parseInputLines inputLines = map parseInputLinePair inputLinePairs
@@ -30,19 +36,19 @@ parseInputLine ('[':str) = packetData
 
 parsePacketData :: String -> (String, PacketData)
 parsePacketData str = case str of
-    ('[':restStr) -> parsePDList str (PDList [])
-    (c:restStr) -> parsePDInt str 0
+    ('[':restStr) -> parsePDList restStr (PDList [])
+    (c:_) -> parsePDInt str (PDInt 0)
 
 parsePDList :: String -> PacketData -> (String, PacketData)
-parsePDList str (PDList currList) = case str of
-    (']':restStr) -> (restStr, PDList currList)
-    (',':restStr) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
+parsePDList str currPdList = case (str, currPdList) of
+    (']':restStr, _) -> (restStr, currPdList)
+    (',':restStr, PDList currList) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
         where (restStr2, packetData) = parsePacketData restStr
-    (c:_) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
+    (_, PDList currList) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
         where (restStr2, packetData) = parsePacketData str
 
-parsePDInt :: String -> Int -> (String, PacketData)
-parsePDInt str currInt = case str of
-    (']':_) -> (str, PDInt currInt)
-    (',':_) -> (str, PDInt currInt)
-    (c:restStr) -> parsePDInt restStr (currInt * 10 + UtilLib.readInt [c])
+parsePDInt :: String -> PacketData -> (String, PacketData)
+parsePDInt str currPdInt = case (str, currPdInt) of
+    (']':_, _) -> (str, currPdInt)
+    (',':_, _) -> (str, currPdInt)
+    (c:restStr, PDInt currInt) -> parsePDInt restStr (PDInt (currInt * 10 + UtilLib.readInt [c]))
