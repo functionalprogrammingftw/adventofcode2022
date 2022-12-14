@@ -36,7 +36,7 @@ addSandUntilFinished materialMap = case addSand materialMap of
 addSand :: MaterialMap -> (MaterialMap, Bool)
 addSand materialMap = case Data.Map.lookup startCoord materialMap of 
     Just _ -> (materialMap, True)
-    Nothing -> moveSand materialMap startCoord
+    Nothing -> moveSand (Data.Map.insert startCoord Sand materialMap) startCoord
     where startCoord = (500, 0)
 
 moveSand :: MaterialMap -> Coord -> (MaterialMap, Bool)
