@@ -16,27 +16,34 @@ taskFunc inputLines = do
     print coordLists
     putStrLn "Initial material map:"
     let materialMap = generateInitialMaterialMap coordLists
-    print $ length materialMap
+    print materialMap
 
 data Material = Rock | Sand deriving (Show, Eq)
 type Coord = (Int, Int)
 type MaterialMap = Map Coord Material
 
+addSand :: MaterialMap -> MaterialMap
+addSand materialMap = case Data.Map.lookup startCoord materialMap of 
+    Just _ -> materialMap
+    Nothing -> newMaterialMap
+    where startCoord = (500, 0)
+          newMaterialMap = Data.Map.insert startCoord Sand materialMap
+
+
 generateInitialMaterialMap :: [[Coord]] -> MaterialMap
 generateInitialMaterialMap = foldl updateMaterialMapFromCoordList Data.Map.empty
 
 updateMaterialMapFromCoordList :: MaterialMap -> [Coord] -> MaterialMap
-updateMaterialMapFromCoordList materialMap [coord] = Data.Map.insert coord Rock materialMap
-updateMaterialMapFromCoordList materialMap (coord1:coord2:coords) = updateMaterialMapFromCoordList newMaterialMap (coord2:coords)
-    where newMaterialMap = updateMaterialMapFromCoordPair materialMap coord1 coord2
+updateMaterialMapFromCoordList materialMap coordList = foldl updateMaterialMapFromCoordPair materialMap coordPairList
+    where coordPairList = zip coordList $ tail coordList
 
-updateMaterialMapFromCoordPair :: MaterialMap -> Coord -> Coord -> MaterialMap
-updateMaterialMapFromCoordPair materialMap (x1, y1) (x2, y2)
-    | x1 < x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap (x1 + 1, y1) (x2, y2)
-    | x1 > x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap (x1 - 1, y1) (x2, y2)
-    | x1 == x2 && y1 < y2 = updateMaterialMapFromCoordPair newMaterialMap (x1, y1 + 1) (x2, y2)
-    | x1 == x2 && y1 > y2 = updateMaterialMapFromCoordPair newMaterialMap (x1, y1 - 1) (x2, y2)
-    | x1 == x2 && y1 == y2 = materialMap
+updateMaterialMapFromCoordPair :: MaterialMap -> (Coord, Coord) -> MaterialMap
+updateMaterialMapFromCoordPair materialMap ((x1, y1), (x2, y2))
+    | x1 < x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1 + 1, y1), (x2, y2))
+    | x1 > x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1 - 1, y1), (x2, y2))
+    | x1 == x2 && y1 < y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1, y1 + 1), (x2, y2))
+    | x1 == x2 && y1 > y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1, y1 - 1), (x2, y2))
+    | x1 == x2 && y1 == y2 = newMaterialMap
         where newMaterialMap = Data.Map.insert (x1, y1) Rock materialMap
 
 parseInputLines :: [String] -> [[Coord]]
