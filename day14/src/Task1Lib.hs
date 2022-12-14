@@ -6,7 +6,7 @@ import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
 import qualified Data.Map (Map, empty, lookup, insert, foldr)
 import Data.Char (ord)
 import Data.Maybe (fromJust)
-import Data.Map (Map)
+import Data.Map (Map, delete, elems)
 import Control.Monad.State (State, MonadState (get, put))
 
 taskFunc :: [String] -> IO ()
@@ -17,18 +17,42 @@ taskFunc inputLines = do
     putStrLn "Initial material map:"
     let materialMap = generateInitialMaterialMap coordLists
     print materialMap
+    putStrLn "Final material map:"
+    let finalMaterialMap = addSandUntilFinished materialMap
+    print finalMaterialMap
+    putStrLn "Sand count:"
+    let count = length $ filter (== Sand) $ Data.Map.elems finalMaterialMap
+    print count
 
 data Material = Rock | Sand deriving (Show, Eq)
 type Coord = (Int, Int)
 type MaterialMap = Map Coord Material
 
-addSand :: MaterialMap -> MaterialMap
-addSand materialMap = case Data.Map.lookup startCoord materialMap of 
-    Just _ -> materialMap
-    Nothing -> newMaterialMap
-    where startCoord = (500, 0)
-          newMaterialMap = Data.Map.insert startCoord Sand materialMap
+addSandUntilFinished :: MaterialMap -> MaterialMap
+addSandUntilFinished materialMap = case addSand materialMap of
+    (newMaterialMap, False) -> addSandUntilFinished newMaterialMap
+    (newMaterialMap, True) -> newMaterialMap
 
+addSand :: MaterialMap -> (MaterialMap, Bool)
+addSand materialMap = case Data.Map.lookup startCoord materialMap of 
+    Just _ -> (materialMap, True)
+    Nothing -> moveSand materialMap startCoord
+    where startCoord = (500, 0)
+
+moveSand :: MaterialMap -> Coord -> (MaterialMap, Bool)
+moveSand materialMap (sandX, sandY) = case (downMaterial, downLeftMaterial, downRightMaterial, sandY) of 
+    (_, _, _, 10000) -> (sandRemovedMaterialMap, True)
+    (Nothing, _, _, _) -> moveSand (Data.Map.insert downCoord Sand sandRemovedMaterialMap) downCoord
+    (_, Nothing, _, _) -> moveSand (Data.Map.insert downLeftCoord Sand sandRemovedMaterialMap) downLeftCoord
+    (_, _, Nothing, _) -> moveSand (Data.Map.insert downRightCoord Sand sandRemovedMaterialMap) downRightCoord
+    (Just _, Just _, Just _, _) -> (materialMap, False)
+    where downCoord =  (sandX, sandY + 1)
+          downLeftCoord = (sandX - 1, sandY + 1)
+          downRightCoord = (sandX + 1, sandY + 1)
+          downMaterial = Data.Map.lookup downCoord materialMap
+          downLeftMaterial = Data.Map.lookup downLeftCoord materialMap
+          downRightMaterial = Data.Map.lookup downRightCoord materialMap
+          sandRemovedMaterialMap = Data.Map.delete (sandX, sandY) materialMap
 
 generateInitialMaterialMap :: [[Coord]] -> MaterialMap
 generateInitialMaterialMap = foldl updateMaterialMapFromCoordList Data.Map.empty
