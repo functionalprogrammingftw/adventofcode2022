@@ -6,75 +6,45 @@ import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
 import qualified Data.Map (Map, empty, lookup, insert, foldr)
 import Data.Char (ord)
 import Data.Maybe (fromJust)
+import Data.Map (Map)
+import Control.Monad.State (State, MonadState (get, put))
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    -- putStrLn "Input lines:"
-    -- print inputLines
-    -- putStrLn "Packet data pairs:"
-    let packetDataPairs = parseInputLines inputLines
-    -- printPairs packetDataPairs
-    -- putStrLn "Compare list:"
-    let compareList = comparePacketDataPairs packetDataPairs
-    -- print compareList
-    putStrLn "Count:"
-    print $ sumTrueIndices compareList
+    putStrLn "Input coordinate lists:"
+    let coordLists = parseInputLines inputLines
+    print coordLists
+    putStrLn "Initial material map:"
+    let materialMap = generateInitialMaterialMap coordLists
+    print $ length materialMap
 
-data PacketData = PDInt Int | PDList [PacketData] deriving (Show, Eq)
+data Material = Rock | Sand deriving (Show, Eq)
+type Coord = (Int, Int)
+type MaterialMap = Map Coord Material
 
-printPairs :: [(PacketData, PacketData)] -> IO ()
-printPairs [pair] = print pair
-printPairs (pair:pairs) = do
-    print pair
-    printPairs pairs
+generateInitialMaterialMap :: [[Coord]] -> MaterialMap
+generateInitialMaterialMap = foldl updateMaterialMapFromCoordList Data.Map.empty
 
-sumTrueIndices :: [Bool] -> Int
-sumTrueIndices bools = sum [ index | (index, bool) <- zip [1..] bools, bool ]
+updateMaterialMapFromCoordList :: MaterialMap -> [Coord] -> MaterialMap
+updateMaterialMapFromCoordList materialMap [coord] = Data.Map.insert coord Rock materialMap
+updateMaterialMapFromCoordList materialMap (coord1:coord2:coords) = updateMaterialMapFromCoordList newMaterialMap (coord2:coords)
+    where newMaterialMap = updateMaterialMapFromCoordPair materialMap coord1 coord2
 
-comparePacketDataPairs :: [(PacketData, PacketData)] -> [Bool]
-comparePacketDataPairs = map (fromJust . comparePacketDataPair)
+updateMaterialMapFromCoordPair :: MaterialMap -> Coord -> Coord -> MaterialMap
+updateMaterialMapFromCoordPair materialMap (x1, y1) (x2, y2)
+    | x1 < x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap (x1 + 1, y1) (x2, y2)
+    | x1 > x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap (x1 - 1, y1) (x2, y2)
+    | x1 == x2 && y1 < y2 = updateMaterialMapFromCoordPair newMaterialMap (x1, y1 + 1) (x2, y2)
+    | x1 == x2 && y1 > y2 = updateMaterialMapFromCoordPair newMaterialMap (x1, y1 - 1) (x2, y2)
+    | x1 == x2 && y1 == y2 = materialMap
+        where newMaterialMap = Data.Map.insert (x1, y1) Rock materialMap
 
-comparePacketDataPair :: (PacketData, PacketData) -> Maybe Bool
-comparePacketDataPair (PDInt leftInt, PDInt rightInt)
-    | leftInt < rightInt = Just True
-    | leftInt > rightInt = Just False
-    | otherwise = Nothing
-comparePacketDataPair (PDList [], PDList []) = Nothing
-comparePacketDataPair (PDList [], PDList (_:_)) = Just True
-comparePacketDataPair (PDList (_:_), PDList []) = Just False
-comparePacketDataPair (PDList (leftPacketData:leftRestList), PDList (rightPacketData:rightRestList)) =
-    case comparePacketDataPair (leftPacketData, rightPacketData) of
-        Nothing -> comparePacketDataPair (PDList leftRestList, PDList rightRestList)
-        justB -> justB
-comparePacketDataPair (PDList leftList, PDInt rightInt) = comparePacketDataPair (PDList leftList, PDList [PDInt rightInt])
-comparePacketDataPair (PDInt leftInt, PDList rightList) = comparePacketDataPair (PDList [PDInt leftInt], PDList rightList)
+parseInputLines :: [String] -> [[Coord]]
+parseInputLines = map parseInputLine
 
-parseInputLines :: [String] -> [(PacketData, PacketData)]
-parseInputLines inputLines = map parseInputLinePair inputLinePairs
-    where inputLinePairs = splitOn [""] inputLines
+parseInputLine :: String -> [Coord]
+parseInputLine inputLine = map parseCoordString $ splitOn " -> " inputLine
 
-parseInputLinePair :: [String] -> (PacketData, PacketData)
-parseInputLinePair [line1, line2] = (parseInputLine line1, parseInputLine line2)
-
-parseInputLine :: String -> PacketData
-parseInputLine ('[':str) = packetData
-    where (_, packetData) = parsePacketData ('[':str)
-
-parsePacketData :: String -> (String, PacketData)
-parsePacketData str = case str of
-    ('[':restStr) -> parsePDList restStr (PDList [])
-    (c:_) -> parsePDInt str (PDInt 0)
-
-parsePDList :: String -> PacketData -> (String, PacketData)
-parsePDList str currPdList = case (str, currPdList) of
-    (']':restStr, _) -> (restStr, currPdList)
-    (',':restStr, PDList currList) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
-        where (restStr2, packetData) = parsePacketData restStr
-    (_, PDList currList) -> parsePDList restStr2 (PDList (currList ++ [packetData]))
-        where (restStr2, packetData) = parsePacketData str
-
-parsePDInt :: String -> PacketData -> (String, PacketData)
-parsePDInt str currPdInt = case (str, currPdInt) of
-    (']':_, _) -> (str, currPdInt)
-    (',':_, _) -> (str, currPdInt)
-    (c:restStr, PDInt currInt) -> parsePDInt restStr (PDInt (currInt * 10 + UtilLib.readInt [c]))
+parseCoordString :: String -> Coord
+parseCoordString coordStr = (UtilLib.readInt xStr, UtilLib.readInt yStr)
+    where [xStr, yStr] = splitOn "," coordStr
