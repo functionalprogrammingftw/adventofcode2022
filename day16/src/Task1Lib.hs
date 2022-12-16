@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+
 module Task1Lib (taskFunc) where
 
 import Control.Monad.State (MonadState (get, put), State)
@@ -10,7 +11,24 @@ import Data.Maybe (fromJust)
 import qualified Data.Set (Set, delete, empty, fromList, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
-data Valve = Valve {flowRate :: Int, tunnelValves :: [String]} deriving (Eq, Show)
+type ValveName = String
+type ValveMap = Data.Map.Map String Valve
+
+data Valve = Valve
+  { flowRate :: Int,
+    tunnelValves :: [String]
+  }
+  deriving (Eq, Show)
+
+data Path = Path
+  { position :: ValveName,
+    openValves :: [ValveName],
+    openedFlowRate :: Int,
+    totalFlow:: Int,
+    prevPosition :: ValveName,
+    justOpenedValve :: Bool
+  }
+  deriving (Eq, Show)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
@@ -18,10 +36,10 @@ taskFunc inputLines = do
   let inputData = parseInputLines inputLines
   print inputData
 
-parseInputLines :: [String] -> Data.Map.Map String Valve
+parseInputLines :: [String] -> ValveMap
 parseInputLines = foldl parseInputLineFold Data.Map.empty
 
-parseInputLineFold :: Data.Map.Map String Valve -> String -> Data.Map.Map String Valve
+parseInputLineFold :: ValveMap -> String -> ValveMap
 parseInputLineFold valveMap inputLine = Data.Map.insert valveName valve valveMap
   where
     firstSplit = splitOn " has flow rate=" $ drop 6 inputLine
