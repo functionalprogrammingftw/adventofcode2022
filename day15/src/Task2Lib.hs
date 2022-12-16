@@ -6,10 +6,11 @@ import UtilLib (every, readInt, countTrueGrid, replaceNth)
 import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
 import qualified Data.Set (Set, empty, union, fromList, delete, intersection, map, toList)
 import Data.Char (ord)
-import Data.Maybe (fromJust)
+import Data.Maybe (mapMaybe)
 import Control.Monad.State (State, MonadState (get, put))
 
 type Coord = (Int, Int)
+type MinMax = (Int, Int)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
@@ -17,10 +18,10 @@ taskFunc inputLines = do
     let inputData = parseInputLines inputLines
     print inputData
     putStrLn "Coordinates where beacons possible:"
-    let coords = calculateCoordinates 0 20 inputData
-    print coords
+    let coord = calculateCoordinates 0 4000000 0 inputData
+    print coord
     putStrLn "Tuning frequency:"
-    let (x, y) = head $ Data.Set.toList coords
+    let (x, y) = coord
     print (x * 4000000 + y)
 
 parseInputLines :: [String] -> [(Coord, Coord, Int)]
@@ -40,15 +41,30 @@ parseCoordString str = (UtilLib.readInt xStr, UtilLib.readInt yStr)
 calculateDistance :: Coord -> Coord -> Int
 calculateDistance (x1, y1) (x2, y2) = abs (x1 - x2) + abs (y1 - y2)
 
-calculateCoordinates :: Int -> Int -> [(Coord, Coord, Int)] -> Data.Set.Set Coord
-calculateCoordinates minXY maxXY coordsAndDistance =
-    foldl1 Data.Set.union $ map (calculateCoordsWhereBeaconPossible minXY maxXY coordsAndDistance) [minXY..maxXY]
+calculateCoordinates :: Int -> Int -> Int -> [(Coord, Coord, Int)] -> Coord
+calculateCoordinates minXY maxXY y coordsAndDistances
+    | minX == minXY && maxX == maxXY = calculateCoordinates minXY maxXY (y + 1) coordsAndDistances
+    | otherwise = if minX /= minXY then (minX - 1, y) else (maxX + 1, y)
+    where ((minX, maxX):_) = calculateXsWhereDistanceEqualOrLess minXY maxXY y coordsAndDistances
 
-calculateCoordsWhereBeaconPossible :: Int -> Int -> [(Coord, Coord, Int)] -> Int -> Data.Set.Set Coord
-calculateCoordsWhereBeaconPossible minX maxX coordsAndDistance y = Data.Set.map (, y) xs
-    where xs = foldl1 Data.Set.intersection $ map (calculateXsWhereDistanceGreater minX maxX y) coordsAndDistance
+calculateXsWhereDistanceEqualOrLess :: Int -> Int -> Int -> [(Coord, Coord, Int)] -> [MinMax]
+calculateXsWhereDistanceEqualOrLess minX maxX y = foldl (calculateXsWhereDistanceEqualOrLessFold minX maxX y) []
 
-calculateXsWhereDistanceGreater :: Int -> Int -> Int -> (Coord, Coord, Int) -> Data.Set.Set Int
-calculateXsWhereDistanceGreater minX maxX y ((sensorX, sensorY), _, distance) =
-    Data.Set.fromList ([minX..sensorX - minXDistance] ++ [sensorX + minXDistance..maxX])
-    where minXDistance = distance - abs (sensorY - y) + 1
+calculateXsWhereDistanceEqualOrLessFold :: Int -> Int -> Int -> [MinMax] -> (Coord, Coord, Int) -> [MinMax]
+calculateXsWhereDistanceEqualOrLessFold minX maxX y minMaxList ((sensorX, sensorY), _, distance)
+    | maxXDistance >= 0 = addToMinMaxList 0 minMaxList (max minX $ sensorX - maxXDistance, min maxX $ sensorX + maxXDistance)
+    | otherwise = minMaxList
+    where maxXDistance = distance - abs (sensorY - y)
+
+addToMinMaxList :: Int -> [MinMax] -> MinMax -> [MinMax]
+addToMinMaxList index minMaxList minMax
+    | index >= length minMaxList = minMax:minMaxList
+    | otherwise = case maybeNewMinMax of
+        Just newMinMax -> addToMinMaxList 0 (take index minMaxList ++ drop (index + 1) minMaxList) newMinMax
+        _ -> addToMinMaxList (index + 1) minMaxList minMax
+    where maybeNewMinMax = mergeMinMaxes minMax (minMaxList !! index)
+
+mergeMinMaxes :: MinMax -> MinMax -> Maybe MinMax
+mergeMinMaxes (minX1, maxX1) (minX2, maxX2)
+    | minX1 > maxX2 || maxX1 < minX2 = Nothing
+    | otherwise = Just (min minX1 minX2, max maxX1 maxX2)
