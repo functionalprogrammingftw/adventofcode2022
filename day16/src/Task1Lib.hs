@@ -1,52 +1,34 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Task1Lib (taskFunc) where
 
-import Data.List.Split (splitOn, chunk)
-import UtilLib (every, readInt, countTrueGrid, replaceNth)
-import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
-import qualified Data.Set (Set, empty, union, fromList, delete)
+import Control.Monad.State (MonadState (get, put), State)
 import Data.Char (ord)
+import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
+import Data.List.Split (chunk, splitOn)
+import qualified Data.Map
 import Data.Maybe (fromJust)
-import Control.Monad.State (State, MonadState (get, put))
+import qualified Data.Set (Set, delete, empty, fromList, union)
+import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
-type Coord = (Int, Int)
+data Valve = Valve {flowRate :: Int, tunnelValves :: [String]} deriving (Eq, Show)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Input data:"
-    let inputData = parseInputLines inputLines
-    print inputData
---    putStrLn "Xs where beacons not possible:"
-    let xsWhereBeaconNotPossible = calculateXsWhereBeaconNotPossible 2000000 inputData
---    print xsWhereBeaconNotPossible
-    putStrLn "Count:"
-    let count = length xsWhereBeaconNotPossible
-    print count
+  putStrLn "Input data:"
+  let inputData = parseInputLines inputLines
+  print inputData
 
-parseInputLines :: [String] -> [(Coord, Coord, Int)]
-parseInputLines = map parseInputLine
+parseInputLines :: [String] -> Data.Map.Map String Valve
+parseInputLines = foldl parseInputLineFold Data.Map.empty
 
-parseInputLine :: String -> (Coord, Coord, Int)
-parseInputLine inputLine = (sensorCoord, beaconCoord, distance)
-    where [sensorCoordStr, beaconCoordStr] = splitOn ": closest beacon is at x=" $ drop 12 inputLine
-          sensorCoord = parseCoordString sensorCoordStr
-          beaconCoord = parseCoordString beaconCoordStr
-          distance = calculateDistance sensorCoord beaconCoord
-
-parseCoordString :: String -> Coord
-parseCoordString str = (UtilLib.readInt xStr, UtilLib.readInt yStr)
-    where [xStr, yStr] = splitOn ", y=" str
-
-calculateDistance :: Coord -> Coord -> Int
-calculateDistance (x1, y1) (x2, y2) = abs (x1 - x2) + abs (y1 - y2)
-
-calculateXsWhereBeaconNotPossible :: Int -> [(Coord, Coord, Int)] -> Data.Set.Set Int
-calculateXsWhereBeaconNotPossible y = foldl (calculateXsWhereBeaconNotPossibleSingleFold y) Data.Set.empty
-
-calculateXsWhereBeaconNotPossibleSingleFold :: Int -> Data.Set.Set Int -> (Coord, Coord, Int) -> Data.Set.Set Int
-calculateXsWhereBeaconNotPossibleSingleFold y prevSet (sensorCoord, (beaconX, beaconY), distance) =
-    if y == beaconY then Data.Set.delete beaconX xsWhereDistanceEqualOrLess else xsWhereDistanceEqualOrLess
-    where xsWhereDistanceEqualOrLess = Data.Set.union prevSet $ calculateXsWhereDistanceEqualOrLess y sensorCoord distance
-
-calculateXsWhereDistanceEqualOrLess :: Int -> Coord -> Int -> Data.Set.Set Int
-calculateXsWhereDistanceEqualOrLess y1 (x2, y2) distance = Data.Set.fromList [x2 - maxXDistance..x2 + maxXDistance]
-    where maxXDistance = distance - abs (y1 - y2)
+parseInputLineFold :: Data.Map.Map String Valve -> String -> Data.Map.Map String Valve
+parseInputLineFold valveMap inputLine = Data.Map.insert valveName valve valveMap
+  where
+    firstSplit = splitOn " has flow rate=" $ drop 6 inputLine
+    valveName = head firstSplit
+    possSecondSplit1 = splitOn "; tunnels lead to valves " (last firstSplit)
+    possSecondSplit2 = splitOn "; tunnel leads to valve " (last firstSplit)
+    secondSplit = if length possSecondSplit1 == 2 then possSecondSplit1 else possSecondSplit2
+    flowRate = UtilLib.readInt $ head secondSplit
+    tunnelValves = splitOn ", " $ last secondSplit
+    valve = Valve {flowRate, tunnelValves}
