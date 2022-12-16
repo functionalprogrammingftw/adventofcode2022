@@ -12,6 +12,7 @@ import qualified Data.Set (Set, delete, empty, fromList, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 type ValveName = String
+
 type ValveMap = Data.Map.Map String Valve
 
 data Valve = Valve
@@ -24,7 +25,7 @@ data Path = Path
   { position :: ValveName,
     openValves :: [ValveName],
     openedFlowRate :: Int,
-    totalFlow:: Int,
+    totalFlow :: Int,
     prevPosition :: ValveName,
     justOpenedValve :: Bool
   }
@@ -35,6 +36,9 @@ taskFunc inputLines = do
   putStrLn "Input data:"
   let inputData = parseInputLines inputLines
   print inputData
+  putStrLn "Paths:"
+  let paths = handleSteps
+  print paths
 
 parseInputLines :: [String] -> ValveMap
 parseInputLines = foldl parseInputLineFold Data.Map.empty
@@ -50,3 +54,10 @@ parseInputLineFold valveMap inputLine = Data.Map.insert valveName valve valveMap
     flowRate = UtilLib.readInt $ head secondSplit
     tunnelValves = splitOn ", " $ last secondSplit
     valve = Valve {flowRate, tunnelValves}
+
+handleSteps :: [Path]
+handleSteps = foldl handleStep [Path {position = "AA", openValves = [], openedFlowRate = 0, totalFlow = 0, prevPosition = "AA", justOpenedValve = False}] [1 .. 30]
+
+handleStep :: [Path] -> Int -> [Path]
+handleStep [] _ = []
+handleStep (path:paths) step = path:handleStep paths step
