@@ -1,9 +1,10 @@
+{-# LANGUAGE TupleSections #-}
 module Task2Lib (taskFunc) where
 
 import Data.List.Split (splitOn, chunk)
 import UtilLib (every, readInt, countTrueGrid, replaceNth)
 import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
-import qualified Data.Set (Set, empty, union, fromList, delete)
+import qualified Data.Set (Set, empty, union, fromList, delete, intersection, map, toList)
 import Data.Char (ord)
 import Data.Maybe (fromJust)
 import Control.Monad.State (State, MonadState (get, put))
@@ -15,12 +16,12 @@ taskFunc inputLines = do
     putStrLn "Input data:"
     let inputData = parseInputLines inputLines
     print inputData
-    putStrLn "Xs where beacons not possible:"
-    let xsWhereBeaconNotPossible = calculateXsWhereBeaconNotPossible 10 inputData
-    print xsWhereBeaconNotPossible
-    putStrLn "Count:"
-    let count = length xsWhereBeaconNotPossible
-    print count
+    putStrLn "Coordinates where beacons possible:"
+    let coords = calculateCoordinates 0 20 inputData
+    print coords
+    putStrLn "Tuning frequency:"
+    let (x, y) = head $ Data.Set.toList coords
+    print (x * 4000000 + y)
 
 parseInputLines :: [String] -> [(Coord, Coord, Int)]
 parseInputLines = map parseInputLine
@@ -39,14 +40,15 @@ parseCoordString str = (UtilLib.readInt xStr, UtilLib.readInt yStr)
 calculateDistance :: Coord -> Coord -> Int
 calculateDistance (x1, y1) (x2, y2) = abs (x1 - x2) + abs (y1 - y2)
 
-calculateXsWhereBeaconNotPossible :: Int -> [(Coord, Coord, Int)] -> Data.Set.Set Int
-calculateXsWhereBeaconNotPossible y = foldl (calculateXsWhereBeaconNotPossibleSingleFold y) Data.Set.empty
+calculateCoordinates :: Int -> Int -> [(Coord, Coord, Int)] -> Data.Set.Set Coord
+calculateCoordinates minXY maxXY coordsAndDistance =
+    foldl1 Data.Set.union $ map (calculateCoordsWhereBeaconPossible minXY maxXY coordsAndDistance) [minXY..maxXY]
 
-calculateXsWhereBeaconNotPossibleSingleFold :: Int -> Data.Set.Set Int -> (Coord, Coord, Int) -> Data.Set.Set Int
-calculateXsWhereBeaconNotPossibleSingleFold y prevSet (sensorCoord, (beaconX, beaconY), distance) =
-    if y == beaconY then Data.Set.delete beaconX xsWhereDistanceEqualOrLess else xsWhereDistanceEqualOrLess
-    where xsWhereDistanceEqualOrLess = Data.Set.union prevSet $ calculateXsWhereDistanceEqualOrLess y sensorCoord distance
+calculateCoordsWhereBeaconPossible :: Int -> Int -> [(Coord, Coord, Int)] -> Int -> Data.Set.Set Coord
+calculateCoordsWhereBeaconPossible minX maxX coordsAndDistance y = Data.Set.map (, y) xs
+    where xs = foldl1 Data.Set.intersection $ map (calculateXsWhereDistanceGreater minX maxX y) coordsAndDistance
 
-calculateXsWhereDistanceEqualOrLess :: Int -> Coord -> Int -> Data.Set.Set Int
-calculateXsWhereDistanceEqualOrLess y1 (x2, y2) distance = Data.Set.fromList [x2 - maxXDistance..x2 + maxXDistance]
-    where maxXDistance = distance - abs (y1 - y2)
+calculateXsWhereDistanceGreater :: Int -> Int -> Int -> (Coord, Coord, Int) -> Data.Set.Set Int
+calculateXsWhereDistanceGreater minX maxX y ((sensorX, sensorY), _, distance) =
+    Data.Set.fromList ([minX..sensorX - minXDistance] ++ [sensorX + minXDistance..maxX])
+    where minXDistance = distance - abs (sensorY - y) + 1

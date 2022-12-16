@@ -15,9 +15,9 @@ taskFunc inputLines = do
     putStrLn "Input data:"
     let inputData = parseInputLines inputLines
     print inputData
-    putStrLn "Xs where beacons not possible:"
+--    putStrLn "Xs where beacons not possible:"
     let xsWhereBeaconNotPossible = calculateXsWhereBeaconNotPossible 2000000 inputData
-    print xsWhereBeaconNotPossible
+--    print xsWhereBeaconNotPossible
     putStrLn "Count:"
     let count = length xsWhereBeaconNotPossible
     print count
