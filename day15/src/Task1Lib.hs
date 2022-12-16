@@ -3,69 +3,50 @@ module Task1Lib (taskFunc) where
 import Data.List.Split (splitOn, chunk)
 import UtilLib (every, readInt, countTrueGrid, replaceNth)
 import Data.List (nub, stripPrefix, insert, intercalate, elemIndex)
-import qualified Data.Map (Map, empty, lookup, insert, foldr)
+import qualified Data.Set (Set, empty, union, fromList, delete)
 import Data.Char (ord)
 import Data.Maybe (fromJust)
-import Data.Map (Map, delete, elems)
 import Control.Monad.State (State, MonadState (get, put))
+
+type Coord = (Int, Int)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-    putStrLn "Input coordinate lists:"
-    print inputLines
+    putStrLn "Input data:"
+    let inputData = parseInputLines inputLines
+    print inputData
+    putStrLn "Xs where beacons not possible:"
+    let xsWhereBeaconNotPossible = calculateXsWhereBeaconNotPossible 2000000 inputData
+    print xsWhereBeaconNotPossible
+    putStrLn "Count:"
+    let count = length xsWhereBeaconNotPossible
+    print count
 
-data Material = Rock | Sand deriving (Show, Eq)
-type Coord = (Int, Int)
-type MaterialMap = Map Coord Material
-
-addSandUntilFinished :: MaterialMap -> MaterialMap
-addSandUntilFinished materialMap = case addSand materialMap of
-    (newMaterialMap, False) -> addSandUntilFinished newMaterialMap
-    (newMaterialMap, True) -> newMaterialMap
-
-addSand :: MaterialMap -> (MaterialMap, Bool)
-addSand materialMap = case Data.Map.lookup startCoord materialMap of 
-    Just _ -> (materialMap, True)
-    Nothing -> moveSand (Data.Map.insert startCoord Sand materialMap) startCoord
-    where startCoord = (500, 0)
-
-moveSand :: MaterialMap -> Coord -> (MaterialMap, Bool)
-moveSand materialMap (sandX, sandY) = case (downMaterial, downLeftMaterial, downRightMaterial, sandY) of 
-    (_, _, _, 10000) -> (sandRemovedMaterialMap, True)
-    (Nothing, _, _, _) -> moveSand (Data.Map.insert downCoord Sand sandRemovedMaterialMap) downCoord
-    (_, Nothing, _, _) -> moveSand (Data.Map.insert downLeftCoord Sand sandRemovedMaterialMap) downLeftCoord
-    (_, _, Nothing, _) -> moveSand (Data.Map.insert downRightCoord Sand sandRemovedMaterialMap) downRightCoord
-    (Just _, Just _, Just _, _) -> (materialMap, False)
-    where downCoord =  (sandX, sandY + 1)
-          downLeftCoord = (sandX - 1, sandY + 1)
-          downRightCoord = (sandX + 1, sandY + 1)
-          downMaterial = Data.Map.lookup downCoord materialMap
-          downLeftMaterial = Data.Map.lookup downLeftCoord materialMap
-          downRightMaterial = Data.Map.lookup downRightCoord materialMap
-          sandRemovedMaterialMap = Data.Map.delete (sandX, sandY) materialMap
-
-generateInitialMaterialMap :: [[Coord]] -> MaterialMap
-generateInitialMaterialMap = foldl updateMaterialMapFromCoordList Data.Map.empty
-
-updateMaterialMapFromCoordList :: MaterialMap -> [Coord] -> MaterialMap
-updateMaterialMapFromCoordList materialMap coordList = foldl updateMaterialMapFromCoordPair materialMap coordPairList
-    where coordPairList = zip coordList $ tail coordList
-
-updateMaterialMapFromCoordPair :: MaterialMap -> (Coord, Coord) -> MaterialMap
-updateMaterialMapFromCoordPair materialMap ((x1, y1), (x2, y2))
-    | x1 < x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1 + 1, y1), (x2, y2))
-    | x1 > x2 && y1 == y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1 - 1, y1), (x2, y2))
-    | x1 == x2 && y1 < y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1, y1 + 1), (x2, y2))
-    | x1 == x2 && y1 > y2 = updateMaterialMapFromCoordPair newMaterialMap ((x1, y1 - 1), (x2, y2))
-    | x1 == x2 && y1 == y2 = newMaterialMap
-        where newMaterialMap = Data.Map.insert (x1, y1) Rock materialMap
-
-parseInputLines :: [String] -> [[Coord]]
+parseInputLines :: [String] -> [(Coord, Coord, Int)]
 parseInputLines = map parseInputLine
 
-parseInputLine :: String -> [Coord]
-parseInputLine inputLine = map parseCoordString $ splitOn " -> " inputLine
+parseInputLine :: String -> (Coord, Coord, Int)
+parseInputLine inputLine = (sensorCoord, beaconCoord, distance)
+    where [sensorCoordStr, beaconCoordStr] = splitOn ": closest beacon is at x=" $ drop 12 inputLine
+          sensorCoord = parseCoordString sensorCoordStr
+          beaconCoord = parseCoordString beaconCoordStr
+          distance = calculateDistance sensorCoord beaconCoord
 
 parseCoordString :: String -> Coord
-parseCoordString coordStr = (UtilLib.readInt xStr, UtilLib.readInt yStr)
-    where [xStr, yStr] = splitOn "," coordStr
+parseCoordString str = (UtilLib.readInt xStr, UtilLib.readInt yStr)
+    where [xStr, yStr] = splitOn ", y=" str
+
+calculateDistance :: Coord -> Coord -> Int
+calculateDistance (x1, y1) (x2, y2) = abs (x1 - x2) + abs (y1 - y2)
+
+calculateXsWhereBeaconNotPossible :: Int -> [(Coord, Coord, Int)] -> Data.Set.Set Int
+calculateXsWhereBeaconNotPossible y = foldl (calculateXsWhereBeaconNotPossibleSingleFold y) Data.Set.empty
+
+calculateXsWhereBeaconNotPossibleSingleFold :: Int -> Data.Set.Set Int -> (Coord, Coord, Int) -> Data.Set.Set Int
+calculateXsWhereBeaconNotPossibleSingleFold y prevSet (sensorCoord, (beaconX, beaconY), distance) =
+    if y == beaconY then Data.Set.delete beaconX xsWhereDistanceEqualOrLess else xsWhereDistanceEqualOrLess
+    where xsWhereDistanceEqualOrLess = Data.Set.union prevSet $ calculateXsWhereDistanceEqualOrLess y sensorCoord distance
+
+calculateXsWhereDistanceEqualOrLess :: Int -> Coord -> Int -> Data.Set.Set Int
+calculateXsWhereDistanceEqualOrLess y1 (x2, y2) distance = Data.Set.fromList [x2 - maxXDistance..x2 + maxXDistance]
+    where maxXDistance = distance - abs (y1 - y2)
