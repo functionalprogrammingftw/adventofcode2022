@@ -12,17 +12,7 @@ import Control.Monad.State (State, MonadState (get, put))
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
     putStrLn "Input coordinate lists:"
-    let coordLists = parseInputLines inputLines
-    print coordLists
-    putStrLn "Initial material map:"
-    let materialMap = generateInitialMaterialMap coordLists
-    print materialMap
-    putStrLn "Final material map:"
-    let finalMaterialMap = addSandUntilFinished materialMap
-    print finalMaterialMap
-    putStrLn "Sand count:"
-    let count = length $ filter (== Sand) $ Data.Map.elems finalMaterialMap
-    print count
+    print inputLines
 
 data Material = Rock | Sand deriving (Show, Eq)
 type Coord = (Int, Int)
