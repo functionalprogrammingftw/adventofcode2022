@@ -6,9 +6,9 @@ import Control.Monad.State (MonadState (get, put), State)
 import Data.Char (ord)
 import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, splitOn)
-import qualified Data.Map
+import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (fromJust)
-import qualified Data.Set (Set, delete, empty, fromList, union)
+import qualified Data.Set (Set, delete, empty, fromList, insert, singleton, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 type ValveName = String
@@ -21,24 +21,26 @@ data Valve = Valve
   }
   deriving (Eq, Show)
 
-data Path = Path
-  { position :: ValveName,
-    openValves :: [ValveName],
+data Position = Position
+  { valveName :: ValveName,
+    openValves :: Data.Set.Set ValveName,
     openedFlowRate :: Int,
     totalFlow :: Int,
-    prevPosition :: ValveName,
-    justOpenedValve :: Bool
+    positionsSinceLastOpen :: Data.Set.Set ValveName
   }
   deriving (Eq, Show)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-  putStrLn "Input data:"
-  let inputData = parseInputLines inputLines
-  print inputData
-  putStrLn "Paths:"
-  let paths = handleSteps
-  print paths
+  putStrLn "Valve map:"
+  let valveMap = parseInputLines inputLines
+  print valveMap
+  putStrLn "Position length:"
+  let positions = handleSteps valveMap 30
+  print $ length positions
+  putStrLn "Maximum pressure:"
+  let maxPressure = maximum $ map totalFlow positions
+  print maxPressure
 
 parseInputLines :: [String] -> ValveMap
 parseInputLines = foldl parseInputLineFold Data.Map.empty
@@ -55,9 +57,58 @@ parseInputLineFold valveMap inputLine = Data.Map.insert valveName valve valveMap
     tunnelValves = splitOn ", " $ last secondSplit
     valve = Valve {flowRate, tunnelValves}
 
-handleSteps :: [Path]
-handleSteps = foldl handleStep [Path {position = "AA", openValves = [], openedFlowRate = 0, totalFlow = 0, prevPosition = "AA", justOpenedValve = False}] [1 .. 30]
+handleSteps :: ValveMap -> Int -> [Position]
+handleSteps valveMap stepCount = foldl (handleStep valveMap) [initialPosition] [1 .. stepCount]
+  where
+    initialPosition =
+      Position
+        { valveName = "AA",
+          openValves = Data.Set.empty,
+          openedFlowRate = 0,
+          totalFlow = 0,
+          positionsSinceLastOpen = Data.Set.singleton "AA"
+        }
 
-handleStep :: [Path] -> Int -> [Path]
-handleStep [] _ = []
-handleStep (path:paths) step = path:handleStep paths step
+handleStep :: ValveMap -> [Position] -> Int -> [Position]
+handleStep valveMap [] _ = []
+handleStep valveMap (position : positions) step = mergePositions (openPosList ++ newPosList) (handleStep valveMap positions step)
+  where
+    openPosList =
+      [ position
+          { openValves = Data.Set.insert posValveName posOpenValves,
+            openedFlowRate = openedFlowRate position + posValveFlowRate,
+            totalFlow = totalFlow position + openedFlowRate position,
+            positionsSinceLastOpen = Data.Set.singleton posValveName
+          }
+        | canOpen
+      ]
+    newPosList =
+      [ position
+          { valveName = newPosValveName,
+            totalFlow = totalFlow position + openedFlowRate position,
+            positionsSinceLastOpen = Data.Set.insert newPosValveName posPositionsSinceLastOpen
+          }
+        | newPosValveName <- tunnelValves posValveData,
+          newPosValveName `notElem` posPositionsSinceLastOpen
+      ]
+    canOpen = posValveName `notElem` openValves position && posValveFlowRate > 0
+    posValveData = fromJust $ Data.Map.lookup posValveName valveMap
+    posValveFlowRate = flowRate $ posValveData
+    posValveName = valveName position
+    posOpenValves = openValves position
+    posPositionsSinceLastOpen = positionsSinceLastOpen position
+
+mergePositions :: [Position] -> [Position] -> [Position]
+mergePositions [] positions = positions
+mergePositions (toMergePosition : toMergePositions) positions = if betterPositionExists then mergedPositions else toMergePosition:mergedPositions
+  where
+    betterPositionExists =
+      not $
+        null
+          [ betterPosition
+            | betterPosition <- positions,
+              valveName betterPosition == valveName toMergePosition
+                && openValves betterPosition == openValves toMergePosition
+                && totalFlow betterPosition < totalFlow toMergePosition
+          ]
+    mergedPositions = mergePositions toMergePositions positions
