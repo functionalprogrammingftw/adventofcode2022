@@ -8,7 +8,7 @@ import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (fromJust)
-import qualified Data.Set (Set, delete, empty, fromList, insert, singleton, union)
+import qualified Data.Set (Set, delete, empty, fromList, insert, singleton, union, isSubsetOf)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 type ValveName = String
@@ -108,7 +108,7 @@ mergePositions (toMergePosition : toMergePositions) positions = if betterPositio
           [ betterPosition
             | betterPosition <- positions,
               valveName betterPosition == valveName toMergePosition
-                && openValves betterPosition == openValves toMergePosition
-                && totalFlow betterPosition < totalFlow toMergePosition
+                && openValves toMergePosition `Data.Set.isSubsetOf` openValves betterPosition
+                && totalFlow toMergePosition < totalFlow betterPosition
           ]
     mergedPositions = mergePositions toMergePositions positions
