@@ -22,8 +22,7 @@ data Valve = Valve
   deriving (Eq, Show)
 
 data Position = Position
-  { myValveName :: ValveName,
-    elephantValveName :: ValveName,
+  { valveNames :: (ValveName, ValveName),
     openValves :: Data.Set.Set ValveName,
     openedFlowRate :: Int,
     totalFlow :: Int,
@@ -37,7 +36,7 @@ taskFunc inputLines = do
   let valveMap = parseInputLines inputLines
   print valveMap
   putStrLn "Position length:"
-  let positions = handleSteps valveMap 30
+  let positions = handleSteps valveMap 1
   print $ length positions
   putStrLn "Maximum pressure:"
   let maxPressure = maximum $ map totalFlow positions
@@ -63,8 +62,7 @@ handleSteps valveMap stepCount = foldl (handleStep valveMap) [initialPosition] [
   where
     initialPosition =
       Position
-        { myValveName = "AA",
-          elephantValveName = "AA",
+        { valveNames = ("AA", "AA"),
           openValves = Data.Set.empty,
           openedFlowRate = 0,
           totalFlow = 0,
@@ -73,32 +71,65 @@ handleSteps valveMap stepCount = foldl (handleStep valveMap) [initialPosition] [
 
 handleStep :: ValveMap -> [Position] -> Int -> [Position]
 handleStep valveMap [] _ = []
-handleStep valveMap (position : positions) step = mergePositions (openPosList ++ newPosList) (handleStep valveMap positions step)
+handleStep valveMap (position : positions) step = mergePositions (openBothPosList ++ open1PosList ++ open2PosList ++ openNoneList) (handleStep valveMap positions step)
   where
-    openPosList =
+    openBothPosList =
       [ position
-          { openValves = Data.Set.insert posMyValveName posOpenValves,
-            openedFlowRate = openedFlowRate position + posValveFlowRate,
-            totalFlow = totalFlow position + openedFlowRate position,
-            positionsSinceLastOpen = Data.Set.singleton posMyValveName
+          { openValves = Data.Set.insert posValveName2 $ Data.Set.insert posValveName1 posOpenValves,
+            openedFlowRate = openedFlowRate position + posValveFlowRate1 + posValveFlowRate2,
+            totalFlow = newTotalFlow,
+            positionsSinceLastOpen = Data.Set.singleton posValveName1
           }
-        | canOpen
+        | canOpen1 && canOpen2
       ]
-    newPosList =
+    open1PosList =
       [ position
-          { myValveName = newPosValveName,
-            totalFlow = totalFlow position + openedFlowRate position,
-            positionsSinceLastOpen = Data.Set.insert newPosValveName posPositionsSinceLastOpen
+          { valveNames = (posValveName1, newPosValveName2),
+            openValves = Data.Set.insert posValveName1 posOpenValves,
+            openedFlowRate = openedFlowRate position + posValveFlowRate1,
+            totalFlow = newTotalFlow,
+            positionsSinceLastOpen = Data.Set.fromList [posValveName1, posValveName2, newPosValveName2]
           }
-        | newPosValveName <- tunnelValves posValveData,
-          newPosValveName `notElem` posPositionsSinceLastOpen
+        | canOpen1,
+          newPosValveName2 <- tunnelValves2,
+          newPosValveName2 `notElem` posPositionsSinceLastOpen && newPosValveName2 /= posValveName1
       ]
-    canOpen = posMyValveName `notElem` openValves position && posValveFlowRate > 0
-    posValveData = fromJust $ Data.Map.lookup posMyValveName valveMap
-    posValveFlowRate = flowRate $ posValveData
-    posMyValveName = myValveName position
+    open2PosList =
+      [ position
+          { valveNames = (newPosValveName1, posValveName2),
+            openValves = Data.Set.insert posValveName2 posOpenValves,
+            openedFlowRate = openedFlowRate position + posValveFlowRate2,
+            totalFlow = newTotalFlow,
+            positionsSinceLastOpen = Data.Set.fromList [posValveName1, newPosValveName1, posValveName2]
+          }
+        | canOpen2,
+          newPosValveName1 <- tunnelValves1,
+          newPosValveName1 `notElem` posPositionsSinceLastOpen && newPosValveName1 /= posValveName2
+      ]
+    openNoneList =
+      [ position
+          { valveNames = (newPosValveName1, newPosValveName2),
+            totalFlow = newTotalFlow,
+            positionsSinceLastOpen = Data.Set.insert newPosValveName2 $ Data.Set.insert newPosValveName1 posPositionsSinceLastOpen
+          }
+        | canOpen1,
+          newPosValveName1 <- tunnelValves1,
+          newPosValveName1 `notElem` posPositionsSinceLastOpen && newPosValveName1 /= posValveName2,
+          newPosValveName2 <- tunnelValves2,
+          newPosValveName2 `notElem` posPositionsSinceLastOpen && newPosValveName2 /= posValveName1
+      ]
+    canOpen1 = posValveName1 `notElem` openValves position && posValveFlowRate1 > 0
+    canOpen2 = posValveName1 `notElem` openValves position && posValveFlowRate2 > 0
+    posValveData1 = fromJust $ Data.Map.lookup posValveName1 valveMap
+    posValveData2 = fromJust $ Data.Map.lookup posValveName2 valveMap
+    posValveFlowRate1 = flowRate posValveData1
+    posValveFlowRate2 = flowRate posValveData2
+    tunnelValves1 = tunnelValves posValveData1
+    tunnelValves2 = tunnelValves posValveData2
+    (posValveName1, posValveName2) = valveNames position
     posOpenValves = openValves position
     posPositionsSinceLastOpen = positionsSinceLastOpen position
+    newTotalFlow = totalFlow position + openedFlowRate position
 
 mergePositions :: [Position] -> [Position] -> [Position]
 mergePositions [] positions = positions
@@ -109,8 +140,16 @@ mergePositions (toMergePosition : toMergePositions) positions = if betterPositio
         null
           [ betterPosition
             | betterPosition <- positions,
-              myValveName betterPosition == myValveName toMergePosition
+              valveNamesSame betterPosition toMergePosition
                 && openedFlowRate toMergePosition < openedFlowRate betterPosition
                 && totalFlow toMergePosition < totalFlow betterPosition
           ]
     mergedPositions = mergePositions toMergePositions positions
+
+valveNamesSame :: Position -> Position -> Bool
+valveNamesSame position1 position2 =
+  valveName11 == valveName21 && valveName12 == valveName22
+    || valveName11 == valveName22 && valveName12 == valveName21
+  where
+    (valveName11, valveName12) = valveNames position1
+    (valveName21, valveName22) = valveNames position2
