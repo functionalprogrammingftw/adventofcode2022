@@ -108,7 +108,7 @@ mergePositions (toMergePosition : toMergePositions) positions = if betterPositio
           [ betterPosition
             | betterPosition <- positions,
               valveName betterPosition == valveName toMergePosition
-                && openValves toMergePosition `Data.Set.isSubsetOf` openValves betterPosition
+                && openedFlowRate toMergePosition < openedFlowRate betterPosition
                 && totalFlow toMergePosition < totalFlow betterPosition
           ]
     mergedPositions = mergePositions toMergePositions positions
