@@ -88,10 +88,10 @@ handleSteps valveMap maxFlowRate stepCount = foldl (handleStepFold valveMap maxF
 handleStepFold :: ValveMap -> Int -> [Position] -> Int -> [Position]
 handleStepFold valveMap _ [] _ = []
 handleStepFold valveMap maxFlowRate (position : positions) step =
-  mergePositions (handleStepTest valveMap maxFlowRate position ++ handleStepFold valveMap maxFlowRate positions step)
+  mergePositions (handleStep valveMap maxFlowRate position ++ handleStepFold valveMap maxFlowRate positions step)
 
-handleStepTest :: ValveMap -> Int -> Position -> [Position]
-handleStepTest valveMap maxFlowRate position
+handleStep :: ValveMap -> Int -> Position -> [Position]
+handleStep valveMap maxFlowRate position
   | openedFlowRate position < maxFlowRate = openBothPosList ++ open1PosList ++ open2PosList ++ openNonePosList
   | otherwise = doNothingPosList
   where
