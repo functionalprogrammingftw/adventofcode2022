@@ -6,7 +6,7 @@ import Control.Monad.State (MonadState (get, put), State)
 import Data.Char (ord)
 import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, splitOn)
-import qualified Data.Map (Map, empty, insert, lookup)
+import qualified Data.Map (Map, elems, empty, insert, lookup, map)
 import Data.Maybe (fromJust)
 import qualified Data.Set (Set, delete, empty, fromList, insert, isSubsetOf, singleton, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
@@ -26,7 +26,8 @@ data Position = Position
     openValves :: Data.Set.Set ValveName,
     openedFlowRate :: Int,
     totalFlow :: Int,
-    positionsSinceLastOpen :: Data.Set.Set ValveName
+    positionsSinceLastOpen :: Data.Set.Set ValveName,
+    path :: [(ValveName, ValveName, Data.Set.Set ValveName, Int, Int)]
   }
   deriving (Eq, Show)
 
@@ -35,8 +36,11 @@ taskFunc inputLines = do
   putStrLn "Valve map:"
   let valveMap = parseInputLines inputLines
   print valveMap
+  putStrLn "Max total flow:"
+  let maxFlowRate = calcMaxFlowRate valveMap
+  print maxFlowRate
   putStrLn "Position length:"
-  let positions = handleSteps valveMap 3
+  let positions = handleSteps valveMap maxFlowRate 26
   print $ length positions
   putStrLn "Opened flow rate:"
   let maxPressure = maximum $ map openedFlowRate positions
@@ -44,8 +48,8 @@ taskFunc inputLines = do
   putStrLn "Maximum pressure:"
   let maxPressure = maximum $ map totalFlow positions
   print maxPressure
---   putStrLn "Test:"
---   print $ filter (\position -> openedFlowRate position >= 81) positions
+  -- putStrLn "Test:"
+  -- print $ filter (\position -> totalFlow position == maxPressure) positions
 
 parseInputLines :: [String] -> ValveMap
 parseInputLines = foldl parseInputLineFold Data.Map.empty
@@ -69,25 +73,33 @@ initialPosition =
       openValves = Data.Set.empty,
       openedFlowRate = 0,
       totalFlow = 0,
-      positionsSinceLastOpen = Data.Set.singleton "AA"
+      positionsSinceLastOpen = Data.Set.singleton "AA",
+      path = []
     }
 
-handleSteps :: ValveMap -> Int -> [Position]
-handleSteps valveMap stepCount = foldl (handleStepFold valveMap) [initialPosition] [1 .. stepCount]
+calcMaxFlowRate :: ValveMap -> Int
+calcMaxFlowRate valveMap = sum $ map flowRate $ Data.Map.elems valveMap
 
-handleStepFold :: ValveMap -> [Position] -> Int -> [Position]
-handleStepFold valveMap [] _ = []
-handleStepFold valveMap (position : positions) step = mergePositions (handleStepTest valveMap position) (handleStepFold valveMap positions step)
+handleSteps :: ValveMap -> Int -> Int -> [Position]
+handleSteps valveMap maxFlowRate stepCount = foldl (handleStepFold valveMap maxFlowRate) [initialPosition] [1 .. stepCount]
 
-handleStepTest :: ValveMap -> Position -> [Position]
-handleStepTest valveMap position = openBothPosList ++ open1PosList ++ open2PosList ++ openNonePosList
+handleStepFold :: ValveMap -> Int -> [Position] -> Int -> [Position]
+handleStepFold valveMap _ [] _ = []
+handleStepFold valveMap maxFlowRate (position : positions) step =
+  mergePositions (handleStepTest valveMap maxFlowRate position) (handleStepFold valveMap maxFlowRate positions step)
+
+handleStepTest :: ValveMap -> Int -> Position -> [Position]
+handleStepTest valveMap maxFlowRate position
+  | openedFlowRate position < maxFlowRate = openBothPosList ++ open1PosList ++ open2PosList ++ openNonePosList
+  | otherwise = doNothingPosList
   where
     openBothPosList =
       [ position
           { openValves = Data.Set.insert posValveName2 $ Data.Set.insert posValveName1 posOpenValves,
             openedFlowRate = openedFlowRate position + posValveFlowRate1 + posValveFlowRate2,
             totalFlow = newTotalFlow,
-            positionsSinceLastOpen = Data.Set.singleton posValveName1
+            positionsSinceLastOpen = Data.Set.singleton posValveName1,
+            path = (posValveName1, posValveName2, posOpenValves, openedFlowRate position, totalFlow position) : path position
           }
         | canOpen1 && canOpen2
       ]
@@ -97,7 +109,8 @@ handleStepTest valveMap position = openBothPosList ++ open1PosList ++ open2PosLi
             openValves = Data.Set.insert posValveName1 posOpenValves,
             openedFlowRate = openedFlowRate position + posValveFlowRate1,
             totalFlow = newTotalFlow,
-            positionsSinceLastOpen = Data.Set.fromList [posValveName1, posValveName2, newPosValveName2]
+            positionsSinceLastOpen = Data.Set.fromList [posValveName1, newPosValveName2],
+            path = (posValveName1, posValveName2, posOpenValves, openedFlowRate position, totalFlow position) : path position
           }
         | canOpen1,
           newPosValveName2 <- tunnelValves2,
@@ -109,7 +122,8 @@ handleStepTest valveMap position = openBothPosList ++ open1PosList ++ open2PosLi
             openValves = Data.Set.insert posValveName2 posOpenValves,
             openedFlowRate = openedFlowRate position + posValveFlowRate2,
             totalFlow = newTotalFlow,
-            positionsSinceLastOpen = Data.Set.fromList [posValveName1, newPosValveName1, posValveName2]
+            positionsSinceLastOpen = Data.Set.fromList [newPosValveName1, posValveName2],
+            path = (posValveName1, posValveName2, posOpenValves, openedFlowRate position, totalFlow position) : path position
           }
         | canOpen2,
           newPosValveName1 <- tunnelValves1,
@@ -119,13 +133,20 @@ handleStepTest valveMap position = openBothPosList ++ open1PosList ++ open2PosLi
       [ position
           { valveNames = (newPosValveName1, newPosValveName2),
             totalFlow = newTotalFlow,
-            positionsSinceLastOpen = Data.Set.insert newPosValveName2 $ Data.Set.insert newPosValveName1 posPositionsSinceLastOpen
+            positionsSinceLastOpen = Data.Set.insert newPosValveName2 $ Data.Set.insert newPosValveName1 posPositionsSinceLastOpen,
+            path = (posValveName1, posValveName2, posOpenValves, openedFlowRate position, totalFlow position) : path position
           }
         | newPosValveName1 <- tunnelValves1,
           newPosValveName1 `notElem` posPositionsSinceLastOpen && newPosValveName1 /= posValveName2,
           newPosValveName2 <- tunnelValves2,
           newPosValveName2 `notElem` posPositionsSinceLastOpen && newPosValveName2 /= posValveName1,
           newPosValveName1 /= newPosValveName2
+      ]
+    doNothingPosList =
+      [ position
+          { totalFlow = newTotalFlow,
+            path = (posValveName1, posValveName2, posOpenValves, openedFlowRate position, totalFlow position) : path position
+          }
       ]
     canOpen1 = posValveName1 `notElem` openValves position && posValveFlowRate1 > 0
     canOpen2 = posValveName2 `notElem` openValves position && posValveFlowRate2 > 0
