@@ -8,110 +8,53 @@ import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (fromJust)
-import qualified Data.Set (Set, delete, empty, fromList, insert, singleton, union, isSubsetOf)
+import qualified Data.Set (Set, delete, empty, fromList, insert, isSubsetOf, singleton, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
-
-type ValveName = String
-
-type ValveMap = Data.Map.Map String Valve
-
-data Valve = Valve
-  { flowRate :: Int,
-    tunnelValves :: [String]
-  }
-  deriving (Eq, Show)
-
-data Position = Position
-  { valveName :: ValveName,
-    openValves :: Data.Set.Set ValveName,
-    openedFlowRate :: Int,
-    totalFlow :: Int,
-    positionsSinceLastOpen :: Data.Set.Set ValveName
-  }
-  deriving (Eq, Show)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-  putStrLn "Valve map:"
-  let valveMap = parseInputLines inputLines
-  print valveMap
-  putStrLn "Position length:"
-  let positions = handleSteps valveMap 30
-  print $ length positions
-  putStrLn "Opened flow rate:"
-  let maxOpenedFlowRate = maximum $ map openedFlowRate positions
-  print maxOpenedFlowRate
-  putStrLn "Maximum pressure:"
-  let maxPressure = maximum $ map totalFlow positions
-  print maxPressure
+  putStrLn "Jet pattern:"
+  let jetPattern = take 100 $ parseInputLines inputLines
+  print jetPattern
+  putStrLn "End position:"
+  let (position, _, _) = handleDrops 2022 jetPattern rocks
+  print position
 
-parseInputLines :: [String] -> ValveMap
-parseInputLines = foldl parseInputLineFold Data.Map.empty
+parseInputLines :: [String] -> String
+parseInputLines = cycle . head
 
-parseInputLineFold :: ValveMap -> String -> ValveMap
-parseInputLineFold valveMap inputLine = Data.Map.insert valveName valve valveMap
-  where
-    firstSplit = splitOn " has flow rate=" $ drop 6 inputLine
-    valveName = head firstSplit
-    possSecondSplit1 = splitOn "; tunnels lead to valves " (last firstSplit)
-    possSecondSplit2 = splitOn "; tunnel leads to valve " (last firstSplit)
-    secondSplit = if length possSecondSplit1 == 2 then possSecondSplit1 else possSecondSplit2
-    flowRate = UtilLib.readInt $ head secondSplit
-    tunnelValves = splitOn ", " $ last secondSplit
-    valve = Valve {flowRate, tunnelValves}
+type Position = [[Bool]]
 
-handleSteps :: ValveMap -> Int -> [Position]
-handleSteps valveMap stepCount = foldl (handleStep valveMap) [initialPosition] [1 .. stepCount]
-  where
-    initialPosition =
-      Position
-        { valveName = "AA",
-          openValves = Data.Set.empty,
-          openedFlowRate = 0,
-          totalFlow = 0,
-          positionsSinceLastOpen = Data.Set.singleton "AA"
-        }
+type Rock = [(Int, Int)]
 
-handleStep :: ValveMap -> [Position] -> Int -> [Position]
-handleStep valveMap [] _ = []
-handleStep valveMap (position : positions) step = mergePositions (openPosList ++ newPosList) (handleStep valveMap positions step)
-  where
-    openPosList =
-      [ position
-          { openValves = Data.Set.insert posValveName posOpenValves,
-            openedFlowRate = openedFlowRate position + posValveFlowRate,
-            totalFlow = totalFlow position + openedFlowRate position,
-            positionsSinceLastOpen = Data.Set.singleton posValveName
-          }
-        | canOpen
-      ]
-    newPosList =
-      [ position
-          { valveName = newPosValveName,
-            totalFlow = totalFlow position + openedFlowRate position,
-            positionsSinceLastOpen = Data.Set.insert newPosValveName posPositionsSinceLastOpen
-          }
-        | newPosValveName <- tunnelValves posValveData,
-          newPosValveName `notElem` posPositionsSinceLastOpen
-      ]
-    canOpen = posValveName `notElem` openValves position && posValveFlowRate > 0
-    posValveData = fromJust $ Data.Map.lookup posValveName valveMap
-    posValveFlowRate = flowRate $ posValveData
-    posValveName = valveName position
-    posOpenValves = openValves position
-    posPositionsSinceLastOpen = positionsSinceLastOpen position
+initialPosition :: Position
+initialPosition = []
 
-mergePositions :: [Position] -> [Position] -> [Position]
-mergePositions [] positions = positions
-mergePositions (toMergePosition : toMergePositions) positions = if betterPositionExists then mergedPositions else toMergePosition:mergedPositions
-  where
-    betterPositionExists =
-      not $
-        null
-          [ betterPosition
-            | betterPosition <- positions,
-              valveName betterPosition == valveName toMergePosition
-                && openedFlowRate toMergePosition < openedFlowRate betterPosition
-                && totalFlow toMergePosition < totalFlow betterPosition
-          ]
-    mergedPositions = mergePositions toMergePositions positions
+rocks :: [Rock]
+rocks = cycle
+  [ [(0, 2), (0, 2), (0, 3), (0, 4)],
+    [(0, 3), (1, 2), (1, 3), (1, 4), (2, 3)],
+    [(0, 4), (1, 4), (2, 2), (2, 3), (2, 4)],
+    [(0, 2), (1, 2), (2, 2), (3, 2)],
+    [(0, 2), (0, 3), (1, 2), (1, 3)]
+  ]
+
+positionWidth :: Int
+positionWidth = 7
+
+handleDrops :: Int -> [Char] -> [Rock] -> (Position, [Char], [Rock])
+handleDrops stepCount jetPattern rocks = foldl handleDrop ([], jetPattern, rocks) [1 .. stepCount]
+
+handleDrop :: (Position, [Char], [Rock]) -> Int -> (Position, [Char], [Rock])
+handleDrop (position, jetPattern, rocks) step = (newPosition, newJetPatterns, newRocks)
+  where newRocks = tail rocks
+        nextRock = head rocks
+        updatedPosition = replicate (calcRockHeight nextRock + 3) (replicate positionWidth False) ++ position
+        (newPosition, newJetPatterns) = performDrop updatedPosition jetPattern nextRock
+
+calcRockHeight :: Rock -> Int
+calcRockHeight rock = maximum ys - minimum ys
+  where ys = map snd rock
+
+performDrop :: Position -> [Char] -> Rock -> (Position, [Char])
+performDrop position jetPattern rock = (position, jetPattern)
