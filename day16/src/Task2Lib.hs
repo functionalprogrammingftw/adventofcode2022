@@ -47,7 +47,7 @@ data Position = Position
   }
   deriving (Eq, Show)
 
-type SeenPositionMap = Data.Map.Map ValveNames [(Data.Set.Set ValveName, Int)]
+type SeenPositionMap = Data.Map.Map ValveNames [(Int, Int)]
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
@@ -61,10 +61,10 @@ taskFunc inputLines = do
   let maxFlowRateReachable = calcMaxFlowRateReachable valveMap $ Data.Set.singleton "AA"
   print maxFlowRateReachable
   putStrLn "Position length:"
-  let (positions, seenPositionsMap) = handleSteps valveMap maxFlowRate 10
+  let (positions, seenPositionsMap) = handleSteps valveMap maxFlowRate 26
   print $ length positions
   putStrLn "Seen Positions Map:"
-  print seenPositionsMap
+  print $ length seenPositionsMap
   putStrLn "Opened flow rate:"
   let maxPressure = maximum $ map openedFlowRate positions
   print maxPressure
@@ -103,7 +103,7 @@ initialPosition =
 
 initialSeenPositionMap :: SeenPositionMap
 initialSeenPositionMap =
-  Data.Map.singleton (ValveNames ("AA", "AA")) [(Data.Set.empty, 0)]
+  Data.Map.singleton (ValveNames ("AA", "AA")) [(0, 0)]
 
 calcMaxFlowRate :: ValveMap -> Int
 calcMaxFlowRate valveMap = sum $ map flowRate $ Data.Map.elems valveMap
@@ -219,20 +219,20 @@ removeSeenPositions (position : positions) seenPositionsMap = case Data.Map.look
       then removeSeenPositions positions seenPositionsMap
       else (position : newPositions, newSeenPositionMap)
     where
-      positionSeenAlready = Data.List.any (\seenPosition -> posOpenValves `Data.Set.isSubsetOf` fst seenPosition && posTotalFlow <= snd seenPosition) seenPositions
+      positionSeenAlready = Data.List.any (\seenPosition -> posOpenedFlowRate <= fst seenPosition && posTotalFlow <= snd seenPosition) seenPositions
       (newPositions, newSeenPositionMap) = removeSeenPositions positions updatedSeenPositionsMap
       updatedSeenPositionsMap = Data.Map.insert posValveNames newSeenPositions seenPositionsMap
         where
           newSeenPositions =
-            (posOpenValves, posTotalFlow)
-              : Data.List.filter (\seenPosition -> not $ fst seenPosition `Data.Set.isSubsetOf` posOpenValves && snd seenPosition <= posTotalFlow) seenPositions
+            (posOpenedFlowRate, posTotalFlow)
+              : Data.List.filter (\seenPosition -> not $ fst seenPosition <= posOpenedFlowRate && snd seenPosition <= posTotalFlow) seenPositions
   Nothing -> (position : newPositions, newSeenPositionMap)
     where
       (newPositions, newSeenPositionMap) = removeSeenPositions positions updatedSeenPositionsMap
       updatedSeenPositionsMap = Data.Map.insert posValveNames newSeenPositions seenPositionsMap
         where
-          newSeenPositions = [(posOpenValves, posTotalFlow)]
+          newSeenPositions = [(posOpenedFlowRate, posTotalFlow)]
   where
     posValveNames = valveNames position
-    posOpenValves = openValves position
+    posOpenedFlowRate = openedFlowRate position
     posTotalFlow = totalFlow position
