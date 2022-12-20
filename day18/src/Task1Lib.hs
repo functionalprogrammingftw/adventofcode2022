@@ -11,91 +11,29 @@ import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-  putStrLn "Jet patterns:"
-  let jetPatterns = parseInputLines inputLines
-  print $ take 100 jetPatterns
-  putStrLn "End position:"
-  let (position, _, _) = handleDrops 2022 jetPatterns rocks
-  printPosition position
-  putStrLn "Length position:"
-  print $ length position
+  putStrLn "Cubes:"
+  let cubes = parseInputLines inputLines
+  print cubes
+  putStrLn "Cube Set:"
+  let cubeSet = Data.Set.fromList cubes
+  print cubeSet
+  putStrLn "Sum of uncovered sides:"
+  let sumUncovered = sum $ map (countExposedSides cubeSet) cubes
+  print sumUncovered
 
-parseInputLines :: [String] -> String
-parseInputLines = cycle . head
+parseInputLines :: [String] -> [(Int, Int, Int)]
+parseInputLines = map parseInputLine
 
-type Position = [[Bool]]
-
-type Rock = [(Int, Int)]
-
-initialPosition :: Position
-initialPosition = []
-
-rocks :: [Rock]
-rocks =
-  cycle
-    [ [(2, 0), (3, 0), (4, 0), (5, 0)],
-      [(3, 0), (2, 1), (3, 1), (4, 1), (3, 2)],
-      [(4, 0), (4, 1), (2, 2), (3, 2), (4, 2)],
-      [(2, 0), (2, 1), (2, 2), (2, 3)],
-      [(2, 0), (3, 0), (2, 1), (3, 1)]
-    ]
-
-printPosition :: Position -> IO ()
-printPosition [] = return ()
-printPosition (row:rows) = do
-  let rowStr = map (\b -> if b then '#' else '.') row
-  putStrLn rowStr
-  printPosition rows
-
-positionWidth :: Int
-positionWidth = 7
-
-handleDrops :: Int -> [Char] -> [Rock] -> (Position, [Char], [Rock])
-handleDrops stepCount jetPatterns rocks = foldl handleDrop ([], jetPatterns, rocks) [1 .. stepCount]
-
-handleDrop :: (Position, [Char], [Rock]) -> Int -> (Position, [Char], [Rock])
-handleDrop (position, jetPatterns, rocks) step = (newPosition, newJetPatterns, newRocks)
+parseInputLine :: String -> (Int, Int, Int)
+parseInputLine str = (UtilLib.readInt xStr, UtilLib.readInt yStr, UtilLib.readInt zStr)
   where
-    newRocks = tail rocks
-    nextRock = head rocks
-    updatedPosition = replicate (calcRockHeight nextRock + 3) (replicate positionWidth False) ++ position
-    (newPosition, newJetPatterns) = performDrop updatedPosition jetPatterns nextRock
+    [xStr, yStr, zStr] = splitOn "," str
 
-calcRockHeight :: Rock -> Int
-calcRockHeight rock = maximum ys - minimum ys + 1
-  where
-    ys = map snd rock
-
-performDrop :: Position -> [Char] -> Rock -> (Position, [Char])
-performDrop position (jetPattern : jetPatterns) rock =
-  if rockFits position droppedRock
-    then performDrop position jetPatterns droppedRock
-    else (newPositionWithRock, jetPatterns)
-  where
-    pushedRock = if jetPattern == '<' then moveRockLeft position rock else moveRockRight position rock
-    droppedRock = map (\(x, y) -> (x, y + 1)) pushedRock
-    newPositionWithRock = removeEmptyRowsFromTop $ updatePosition position pushedRock
-
-moveRockLeft :: Position -> Rock -> Rock
-moveRockLeft position rock = if rockFits position movedRock then movedRock else rock
-  where
-    movedRock = map (\(x, y) -> (x - 1, y)) rock
-
-moveRockRight :: Position -> Rock -> Rock
-moveRockRight position rock = if rockFits position movedRock then movedRock else rock
-  where
-    movedRock = map (\(x, y) -> (x + 1, y)) rock
-
-rockFits :: Position -> Rock -> Bool
-rockFits position rock = not (any (\(x, y) -> x < 0 || x >= positionWidth || y >= length position || position !! y !! x) rock)
-
-updatePosition :: Position -> Rock -> Position
-updatePosition position [] = position
-updatePosition position ((x, y):coords) = updatePosition newPosition coords
-  where newPosition = take y position ++ updatedRow : drop (y + 1) position
-        row = position !! y
-        updatedRow = take x row ++ True : drop (x + 1) row
-
-removeEmptyRowsFromTop :: Position -> Position
-removeEmptyRowsFromTop [] = []
-removeEmptyRowsFromTop (row:rows) = if True `notElem` row then removeEmptyRowsFromTop rows else row:rows
+countExposedSides :: Data.Set.Set (Int, Int, Int) -> (Int, Int, Int) -> Int
+countExposedSides cubeSet (x, y, z) =
+  fromEnum ((x + 1, y, z) `notElem` cubeSet)
+    + fromEnum ((x - 1, y, z) `notElem` cubeSet)
+    + fromEnum ((x, y + 1, z) `notElem` cubeSet)
+    + fromEnum ((x, y - 1, z) `notElem` cubeSet)
+    + fromEnum ((x, y, z + 1) `notElem` cubeSet)
+    + fromEnum ((x, y, z - 1) `notElem` cubeSet)
