@@ -38,6 +38,9 @@ taskFunc inputLines = do
   putStrLn "Position length:"
   let positions = handleSteps valveMap 30
   print $ length positions
+  putStrLn "Opened flow rate:"
+  let maxOpenedFlowRate = maximum $ map openedFlowRate positions
+  print maxOpenedFlowRate
   putStrLn "Maximum pressure:"
   let maxPressure = maximum $ map totalFlow positions
   print maxPressure

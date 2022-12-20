@@ -9,7 +9,7 @@ import Data.List (any, elemIndex, filter, find, insert, intercalate, nub, stripP
 import Data.List.Split (chunk, splitOn)
 import qualified Data.Map (Map, elems, empty, insert, lookup, map, singleton)
 import Data.Maybe (fromJust)
-import qualified Data.Set (Set, delete, empty, fromList, insert, isSubsetOf, singleton, union)
+import qualified Data.Set (Set, delete, elems, empty, fromList, insert, isSubsetOf, map, singleton, size, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 type ValveName = String
@@ -56,6 +56,9 @@ taskFunc inputLines = do
   putStrLn "Max total flow:"
   let maxFlowRate = calcMaxFlowRate valveMap
   print maxFlowRate
+  putStrLn "Max total flow reachable:"
+  let maxFlowRateReachable = calcMaxFlowRateReachable valveMap $ Data.Set.singleton "AA"
+  print maxFlowRateReachable
   putStrLn "Position length:"
   let positions = handleSteps valveMap maxFlowRate 26
   print $ length positions
@@ -101,6 +104,16 @@ initialSeenPositionMap =
 
 calcMaxFlowRate :: ValveMap -> Int
 calcMaxFlowRate valveMap = sum $ map flowRate $ Data.Map.elems valveMap
+
+calcMaxFlowRateReachable :: ValveMap -> Data.Set.Set ValveName -> Int
+calcMaxFlowRateReachable valveMap seenValveNames =
+  if foundMore
+    then calcMaxFlowRateReachable valveMap newSeenValveNames
+    else sum $ map (\seenValveName -> flowRate $ fromJust $ Data.Map.lookup seenValveName valveMap) $ Data.Set.elems seenValveNames
+  where
+    newSeenValveNames = Data.Set.fromList $ seenValveNameList ++ concatMap (\seenValveName -> tunnelValves $ fromJust $ Data.Map.lookup seenValveName valveMap) seenValveNameList
+    foundMore = Data.Set.size seenValveNames < Data.Set.size newSeenValveNames
+    seenValveNameList = Data.Set.elems seenValveNames
 
 handleSteps :: ValveMap -> Int -> Int -> [Position]
 handleSteps valveMap maxFlowRate stepCount = foldl (handleStepFold valveMap initialSeenPositionMap maxFlowRate) [initialPosition] [1 .. stepCount]
