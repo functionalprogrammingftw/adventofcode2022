@@ -3,18 +3,32 @@
 module Task2Lib (taskFunc) where
 
 import Control.Monad.State (MonadState (get, put), State)
+import qualified Data.Bifunctor
 import Data.Char (ord)
-import Data.List (elemIndex, insert, intercalate, nub, stripPrefix, find)
+import Data.List (any, elemIndex, filter, find, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, splitOn)
-import qualified Data.Map (Map, elems, empty, insert, lookup, map)
+import qualified Data.Map (Map, elems, empty, insert, lookup, map, singleton)
 import Data.Maybe (fromJust)
 import qualified Data.Set (Set, delete, empty, fromList, insert, isSubsetOf, singleton, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
-import qualified Data.Bifunctor
 
 type ValveName = String
 
 type ValveMap = Data.Map.Map ValveName Valve
+
+newtype ValveNames = ValveNames (ValveName, ValveName) deriving (Show)
+
+instance Eq ValveNames where
+  ValveNames (valveName11, valveName12) == ValveNames (valveName21, valveName22) = concat1 == concat2
+    where
+      concat1 = if valveName11 < valveName12 then valveName11 ++ valveName12 else valveName12 ++ valveName11
+      concat2 = if valveName21 < valveName22 then valveName21 ++ valveName22 else valveName22 ++ valveName21
+
+instance Ord ValveNames where
+  ValveNames (valveName11, valveName12) `compare` ValveNames (valveName21, valveName22) = concat1 `compare` concat2
+    where
+      concat1 = if valveName11 < valveName12 then valveName11 ++ valveName12 else valveName12 ++ valveName11
+      concat2 = if valveName21 < valveName22 then valveName21 ++ valveName22 else valveName22 ++ valveName21
 
 data Valve = Valve
   { flowRate :: Int,
@@ -23,7 +37,7 @@ data Valve = Valve
   deriving (Eq, Show)
 
 data Position = Position
-  { valveNames :: (ValveName, ValveName),
+  { valveNames :: ValveNames,
     openValves :: Data.Set.Set ValveName,
     openedFlowRate :: Int,
     totalFlow :: Int,
@@ -31,6 +45,8 @@ data Position = Position
     path :: [(ValveName, ValveName, Data.Set.Set ValveName, Int, Int)]
   }
   deriving (Eq, Show)
+
+type SeenPositionMap = Data.Map.Map ValveNames [(Data.Set.Set ValveName, Int)]
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
@@ -41,7 +57,7 @@ taskFunc inputLines = do
   let maxFlowRate = calcMaxFlowRate valveMap
   print maxFlowRate
   putStrLn "Position length:"
-  let positions = handleSteps valveMap maxFlowRate 20
+  let positions = handleSteps valveMap maxFlowRate 26
   print $ length positions
   putStrLn "Opened flow rate:"
   let maxPressure = maximum $ map openedFlowRate positions
@@ -71,7 +87,7 @@ parseInputLineFold valveMap inputLine = Data.Map.insert valveName valve valveMap
 initialPosition :: Position
 initialPosition =
   Position
-    { valveNames = ("AA", "AA"),
+    { valveNames = ValveNames ("AA", "AA"),
       openValves = Data.Set.empty,
       openedFlowRate = 0,
       totalFlow = 0,
@@ -79,21 +95,27 @@ initialPosition =
       path = []
     }
 
+initialSeenPositionMap :: SeenPositionMap
+initialSeenPositionMap =
+  Data.Map.singleton (ValveNames ("AA", "AA")) []
+
 calcMaxFlowRate :: ValveMap -> Int
 calcMaxFlowRate valveMap = sum $ map flowRate $ Data.Map.elems valveMap
 
 handleSteps :: ValveMap -> Int -> Int -> [Position]
-handleSteps valveMap maxFlowRate stepCount = foldl (handleStepFold valveMap maxFlowRate) [initialPosition] [1 .. stepCount]
+handleSteps valveMap maxFlowRate stepCount = foldl (handleStepFold valveMap initialSeenPositionMap maxFlowRate) [initialPosition] [1 .. stepCount]
 
-handleStepFold :: ValveMap -> Int -> [Position] -> Int -> [Position]
-handleStepFold valveMap _ [] _ = []
-handleStepFold valveMap maxFlowRate (position : positions) step =
-  mergePositions (handleStep valveMap maxFlowRate position ++ handleStepFold valveMap maxFlowRate positions step)
+handleStepFold :: ValveMap -> SeenPositionMap -> Int -> [Position] -> Int -> [Position]
+handleStepFold valveMap seenPositionMap _ [] _ = []
+handleStepFold valveMap seenPositionMap maxFlowRate (position : positions) step =
+  newPositions ++ handleStepFold valveMap newSeenPositionMap maxFlowRate positions step
+  where
+    (newPositions, newSeenPositionMap) = handleStep valveMap seenPositionMap maxFlowRate position
 
-handleStep :: ValveMap -> Int -> Position -> [Position]
-handleStep valveMap maxFlowRate position
-  | openedFlowRate position < maxFlowRate = openBothPosList ++ open1PosList ++ open2PosList ++ openNonePosList
-  | otherwise = doNothingPosList
+handleStep :: ValveMap -> SeenPositionMap -> Int -> Position -> ([Position], SeenPositionMap)
+handleStep valveMap seenPositionMap maxFlowRate position
+  | openedFlowRate position < maxFlowRate = removeSeenPositions (openBothPosList ++ open1PosList ++ open2PosList ++ openNonePosList) seenPositionMap
+  | otherwise = (doNothingPosList, seenPositionMap)
   where
     openBothPosList =
       [ position
@@ -107,7 +129,7 @@ handleStep valveMap maxFlowRate position
       ]
     open1PosList =
       [ position
-          { valveNames = (posValveName1, newPosValveName2),
+          { valveNames = ValveNames (posValveName1, newPosValveName2),
             openValves = Data.Set.insert posValveName1 posOpenValves,
             openedFlowRate = openedFlowRate position + posValveFlowRate1,
             totalFlow = newTotalFlow,
@@ -120,7 +142,7 @@ handleStep valveMap maxFlowRate position
       ]
     open2PosList =
       [ position
-          { valveNames = (newPosValveName1, posValveName2),
+          { valveNames = ValveNames (newPosValveName1, posValveName2),
             openValves = Data.Set.insert posValveName2 posOpenValves,
             openedFlowRate = openedFlowRate position + posValveFlowRate2,
             totalFlow = newTotalFlow,
@@ -133,7 +155,7 @@ handleStep valveMap maxFlowRate position
       ]
     openNonePosList =
       [ position
-          { valveNames = (newPosValveName1, newPosValveName2),
+          { valveNames = ValveNames (newPosValveName1, newPosValveName2),
             totalFlow = newTotalFlow,
             positionsSinceLastOpen = Data.Bifunctor.bimap (Data.Set.insert newPosValveName1) (Data.Set.insert newPosValveName2) posPositionsSinceLastOpen,
             path = (posValveName1, posValveName2, posOpenValves, openedFlowRate position, totalFlow position) : path position
@@ -158,7 +180,7 @@ handleStep valveMap maxFlowRate position
     posValveFlowRate2 = flowRate posValveData2
     tunnelValves1 = tunnelValves posValveData1
     tunnelValves2 = tunnelValves posValveData2
-    (posValveName1, posValveName2) = valveNames position
+    ValveNames (posValveName1, posValveName2) = valveNames position
     posOpenValves = openValves position
     posPositionsSinceLastOpen = positionsSinceLastOpen position
     newTotalFlow = totalFlow position + openedFlowRate position
@@ -172,10 +194,28 @@ mergePositions (position : positions) = if betterPositionExists then mergedPosit
       _ -> False
     mergedPositions = mergePositions positions
 
-valveNamesSame :: Position -> Position -> Bool
-valveNamesSame position1 position2 =
-  valveName11 == valveName21 && valveName12 == valveName22
-    || valveName11 == valveName22 && valveName12 == valveName21
+removeSeenPositions :: [Position] -> SeenPositionMap -> ([Position], SeenPositionMap)
+removeSeenPositions [] seenPositionsMap = ([], seenPositionsMap)
+removeSeenPositions (position : positions) seenPositionsMap = case Data.Map.lookup posValveNames seenPositionsMap of
+  Just seenPositions ->
+    if positionSeenAlready
+      then removeSeenPositions positions seenPositionsMap
+      else (position : newPositions, newSeenPositionMap)
+    where
+      positionSeenAlready = Data.List.any (\seenPosition -> posOpenValves `Data.Set.isSubsetOf` fst seenPosition && posTotalFlow <= snd seenPosition) seenPositions
+      (newPositions, newSeenPositionMap) = removeSeenPositions positions updatedSeenPositionsMap
+      updatedSeenPositionsMap = Data.Map.insert posValveNames newSeenPositions seenPositionsMap
+        where
+          newSeenPositions =
+            (posOpenValves, posTotalFlow)
+              : Data.List.filter (\seenPosition -> not $ fst seenPosition `Data.Set.isSubsetOf` posOpenValves && snd seenPosition <= posTotalFlow) seenPositions
+  Nothing -> (position : newPositions, newSeenPositionMap)
+    where
+      (newPositions, newSeenPositionMap) = removeSeenPositions positions updatedSeenPositionsMap
+      updatedSeenPositionsMap = Data.Map.insert posValveNames newSeenPositions seenPositionsMap
+        where
+          newSeenPositions = [(posOpenValves, posTotalFlow)]
   where
-    (valveName11, valveName12) = valveNames position1
-    (valveName21, valveName22) = valveNames position2
+    posValveNames = valveNames position
+    posOpenValves = openValves position
+    posTotalFlow = totalFlow position
