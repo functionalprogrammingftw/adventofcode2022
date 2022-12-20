@@ -7,10 +7,11 @@ import qualified Data.Bifunctor
 import Data.Char (ord)
 import Data.List (any, elemIndex, filter, find, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, splitOn)
-import qualified Data.Map (Map, elems, empty, insert, lookup, map, singleton)
+import qualified Data.Map (Map, elems, empty, insert, lookup, map, singleton, size)
 import Data.Maybe (fromJust)
 import qualified Data.Set (Set, delete, elems, empty, fromList, insert, isSubsetOf, map, singleton, size, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
+import Control.Applicative (Alternative(empty))
 
 type ValveName = String
 
@@ -60,8 +61,10 @@ taskFunc inputLines = do
   let maxFlowRateReachable = calcMaxFlowRateReachable valveMap $ Data.Set.singleton "AA"
   print maxFlowRateReachable
   putStrLn "Position length:"
-  let positions = handleSteps valveMap maxFlowRate 26
+  let (positions, seenPositionsMap) = handleSteps valveMap maxFlowRate 10
   print $ length positions
+  putStrLn "Seen Positions Map:"
+  print seenPositionsMap
   putStrLn "Opened flow rate:"
   let maxPressure = maximum $ map openedFlowRate positions
   print maxPressure
@@ -100,7 +103,7 @@ initialPosition =
 
 initialSeenPositionMap :: SeenPositionMap
 initialSeenPositionMap =
-  Data.Map.singleton (ValveNames ("AA", "AA")) []
+  Data.Map.singleton (ValveNames ("AA", "AA")) [(Data.Set.empty, 0)]
 
 calcMaxFlowRate :: ValveMap -> Int
 calcMaxFlowRate valveMap = sum $ map flowRate $ Data.Map.elems valveMap
@@ -115,15 +118,16 @@ calcMaxFlowRateReachable valveMap seenValveNames =
     foundMore = Data.Set.size seenValveNames < Data.Set.size newSeenValveNames
     seenValveNameList = Data.Set.elems seenValveNames
 
-handleSteps :: ValveMap -> Int -> Int -> [Position]
-handleSteps valveMap maxFlowRate stepCount = foldl (handleStepFold valveMap initialSeenPositionMap maxFlowRate) [initialPosition] [1 .. stepCount]
+handleSteps :: ValveMap -> Int -> Int -> ([Position], SeenPositionMap)
+handleSteps valveMap maxFlowRate stepCount = foldl (handleStepFold valveMap maxFlowRate) ([initialPosition], initialSeenPositionMap ) [1 .. stepCount]
 
-handleStepFold :: ValveMap -> SeenPositionMap -> Int -> [Position] -> Int -> [Position]
-handleStepFold valveMap seenPositionMap _ [] _ = []
-handleStepFold valveMap seenPositionMap maxFlowRate (position : positions) step =
-  newPositions ++ handleStepFold valveMap newSeenPositionMap maxFlowRate positions step
+handleStepFold :: ValveMap -> Int -> ([Position], SeenPositionMap) -> Int -> ([Position], SeenPositionMap)
+handleStepFold valveMap _ ([], seenPositionMap) _ = ([], seenPositionMap)
+handleStepFold valveMap maxFlowRate (position : positions, seenPositionMap) step =
+  (newPositions ++ newerPositions, newerSeenPositionMap) 
   where
     (newPositions, newSeenPositionMap) = handleStep valveMap seenPositionMap maxFlowRate position
+    (newerPositions, newerSeenPositionMap) = handleStepFold valveMap maxFlowRate (positions, newSeenPositionMap) step
 
 handleStep :: ValveMap -> SeenPositionMap -> Int -> Position -> ([Position], SeenPositionMap)
 handleStep valveMap seenPositionMap maxFlowRate position
