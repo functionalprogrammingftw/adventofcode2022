@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 module Task1Lib (taskFunc) where
 
 import Control.Monad.State (MonadState (get, put), State)
