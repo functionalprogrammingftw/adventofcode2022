@@ -25,7 +25,7 @@ parseInputLine str = Blueprint {blueprintId, oreRobotPrice, clayRobotPrice, obsi
   where
     [startStr, endStr] = splitOn ": " str
     blueprintId = UtilLib.readInt $ drop 10 startStr
-    [oreRobotPriceStr, clayRobotPriceStr, obsidianRobotPriceStr, geodeRobotPriceStr] = splitOn ". " str
+    [oreRobotPriceStr, clayRobotPriceStr, obsidianRobotPriceStr, geodeRobotPriceStr] = splitOn ". " endStr
     oreRobotPrice =
       RobotPrice
         { orePrice = UtilLib.readInt $ head $ splitOn " " (drop 21 oreRobotPriceStr),
