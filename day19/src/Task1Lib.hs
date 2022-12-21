@@ -11,29 +11,37 @@ import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-  putStrLn "Cubes:"
-  let cubes = parseInputLines inputLines
-  print cubes
-  putStrLn "Cube Set:"
-  let cubeSet = Data.Set.fromList cubes
-  print cubeSet
-  putStrLn "Sum of uncovered sides:"
-  let sumUncovered = sum $ map (countExposedSides cubeSet) cubes
-  print sumUncovered
+  putStrLn "Input lines:"
+  print inputLines
 
-parseInputLines :: [String] -> [(Int, Int, Int)]
-parseInputLines = map parseInputLine
+data RobotPrice = RobotPrice {
+  orePrice :: Int,
+  clayPrice :: Int,
+  obsidianPrice :: Int
+} deriving (Show, Eq)
 
-parseInputLine :: String -> (Int, Int, Int)
-parseInputLine str = (UtilLib.readInt xStr, UtilLib.readInt yStr, UtilLib.readInt zStr)
-  where
-    [xStr, yStr, zStr] = splitOn "," str
+data Blueprint = Blueprint {
+  oreRobotPrice :: RobotPrice,
+  clayRobotPrice :: RobotPrice,
+  obsidianRobotPrice :: RobotPrice,
+  geodeRobotPrice :: RobotPrice
+} deriving (Show, Eq)
 
-countExposedSides :: Data.Set.Set (Int, Int, Int) -> (Int, Int, Int) -> Int
-countExposedSides cubeSet (x, y, z) =
-  fromEnum ((x + 1, y, z) `notElem` cubeSet)
-    + fromEnum ((x - 1, y, z) `notElem` cubeSet)
-    + fromEnum ((x, y + 1, z) `notElem` cubeSet)
-    + fromEnum ((x, y - 1, z) `notElem` cubeSet)
-    + fromEnum ((x, y, z + 1) `notElem` cubeSet)
-    + fromEnum ((x, y, z - 1) `notElem` cubeSet)
+data RobotConfig = RobotConfig {
+  oreRobots :: Int,
+  clayRobots :: Int,
+  obsidianRobots :: Int,
+  geodeRobots :: Int
+} deriving (Show, Eq)
+
+data Resources = Resources {
+  ore :: Int,
+  clay :: Int,
+  obsidian :: Int,
+  geode :: Int
+} deriving (Show, Eq)
+
+data Inventory = Inventory {
+  resources :: Resources,
+  robotConfig :: RobotConfig
+} deriving (Show, Eq)
