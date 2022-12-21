@@ -28,27 +28,27 @@ parseInputLine str = Blueprint {blueprintId, oreRobotPrice, clayRobotPrice, obsi
     [oreRobotPriceStr, clayRobotPriceStr, obsidianRobotPriceStr, geodeRobotPriceStr] = splitOn ". " endStr
     oreRobotPrice =
       RobotPrice
-        { orePrice = UtilLib.readInt $ head $ splitOn " " (drop 21 oreRobotPriceStr),
+        { orePrice = UtilLib.readInt $ head $ splitOn " " $ drop 21 oreRobotPriceStr,
           clayPrice = 0,
           obsidianPrice = 0
         }
     clayRobotPrice =
       RobotPrice
-        { orePrice = UtilLib.readInt $ head $ splitOn " " (drop 22 clayRobotPriceStr),
+        { orePrice = UtilLib.readInt $ head $ splitOn " " $ drop 22 clayRobotPriceStr,
           clayPrice = 0,
           obsidianPrice = 0
         }
     obsidianRobotPrice =
       RobotPrice
-        { orePrice = UtilLib.readInt $ head $ splitOn " " (drop 26 obsidianRobotPriceStr),
-          clayPrice = 0,
+        { orePrice = UtilLib.readInt $ head $ splitOn " " $ drop 26 obsidianRobotPriceStr,
+          clayPrice = UtilLib.readInt $ head $ splitOn " " $ last $ splitOn " ore and " obsidianRobotPriceStr,
           obsidianPrice = 0
         }
     geodeRobotPrice =
       RobotPrice
-        { orePrice = UtilLib.readInt $ head $ splitOn " " (drop 23 geodeRobotPriceStr),
+        { orePrice = UtilLib.readInt $ head $ splitOn " " $ drop 23 geodeRobotPriceStr,
           clayPrice = 0,
-          obsidianPrice = 0
+          obsidianPrice = UtilLib.readInt $ head $ splitOn " " $ last $ splitOn " ore and " geodeRobotPriceStr
         }
 
 -- Model
