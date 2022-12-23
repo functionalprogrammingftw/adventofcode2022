@@ -7,7 +7,7 @@ import Data.Char (ord)
 import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, split, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
-import Data.Maybe (fromJust)
+import Data.Maybe (catMaybes, fromJust)
 import qualified Data.Set (Set, delete, empty, fromList, insert, isSubsetOf, singleton, union)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
@@ -17,8 +17,8 @@ taskFunc inputLines = do
   let blueprints = parseInputLines inputLines
   print blueprints
   putStrLn "Blueprint 1 inventories after minute 3:"
-  let inventories = calcBlueprintInventories 3 (head blueprints)
-  print inventories
+  let inventories = calcBlueprintInventories 20 (head blueprints)
+  print $ length inventories
 
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
@@ -77,21 +77,16 @@ handleMinuteInventories :: Blueprint -> [Inventory] -> Int -> [Inventory]
 handleMinuteInventories blueprint inventories minuteNo = concatMap (handleMinuteInventory blueprint) inventories
 
 handleMinuteInventory :: Blueprint -> Inventory -> [Inventory]
-handleMinuteInventory blueprint inventory = map (produce inventory) boughtGeodeRobotsInventories
+handleMinuteInventory blueprint inventory = map (produce inventory) boughtRobotsInventories
   where
-    boughtOreRobotsInventories = buyRobots (oreRobotPrice blueprint) oreRobotIncrementer [inventory]
-    boughtClayRobotsInventories = buyRobots (clayRobotPrice blueprint) clayRobotIncrementer boughtOreRobotsInventories
-    boughtObsidianRobotsInventories = buyRobots (obsidianRobotPrice blueprint) obsidianRobotIncrementer boughtClayRobotsInventories
-    boughtGeodeRobotsInventories = buyRobots (geodeRobotPrice blueprint) geodeRobotIncrementer boughtObsidianRobotsInventories
-
-buyRobots :: RobotPrice -> (Inventory -> Inventory) -> [Inventory] -> [Inventory]
-buyRobots robotPrice robotIncrementer = concatMap (buyRobotsSingle robotPrice robotIncrementer)
-
-buyRobotsSingle :: RobotPrice -> (Inventory -> Inventory) -> Inventory -> [Inventory]
-buyRobotsSingle robotPrice robotIncrementer inventory =
-  inventory : case buyRobot robotPrice robotIncrementer inventory of
-    Just newInventory -> buyRobotsSingle robotPrice robotIncrementer newInventory
-    Nothing -> []
+    boughtRobotsInventories =
+      inventory
+        : catMaybes
+          [ buyRobot (oreRobotPrice blueprint) oreRobotIncrementer inventory,
+            buyRobot (clayRobotPrice blueprint) clayRobotIncrementer inventory,
+            buyRobot (obsidianRobotPrice blueprint) obsidianRobotIncrementer inventory,
+            buyRobot (geodeRobotPrice blueprint) geodeRobotIncrementer inventory
+          ]
 
 buyRobot :: RobotPrice -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
 buyRobot robotPrice robotIncrementer inventory =
