@@ -16,12 +16,15 @@ taskFunc inputLines = do
   putStrLn "Blueprints:"
   let blueprints = parseInputLines inputLines
   print blueprints
-  -- let (inventories, buyOrders) = calcBlueprintInventories 24 (head blueprints)
-  -- putStrLn "Blueprint 1 inventories after minutes:"
+  -- putStrLn "Blueprint:"
+  -- let blueprint = blueprints !! 3
+  -- print blueprint
+  -- let (inventories, buyOrders) = calcBlueprintInventories 22 blueprint
+  -- putStrLn "Blueprint 4 inventories after minutes:"
   -- print inventories
-  -- putStrLn "Blueprint 1 buy orders length after minutes:"
+  -- putStrLn "Blueprint 4 buy orders length after minutes:"
   -- print $ length buyOrders
-  -- putStrLn "Blueprint 1 inventory count after minutes:"
+  -- putStrLn "Blueprint 4 inventory count after minutes:"
   -- print $ length inventories
   -- putStrLn "Geode robot inventory count:"
   -- print $ length $ filter (\i -> geodeRobots i > 0) inventories
@@ -101,20 +104,33 @@ handleMinuteInventoriesAndPrune :: Blueprint -> ([Inventory], BuyOrders) -> Int 
 handleMinuteInventoriesAndPrune blueprint inventoriesAndBuyOrders minuteNo = (newInventories, newBuyOrders)
   where
     (inventories, buyOrders) = handleMinuteInventories blueprint inventoriesAndBuyOrders minuteNo
-    maxObsidianRobots = maximum $ map obsidianRobots inventories
-    maxGeodeRobots = maximum $ map geodeRobots inventories
-    newInventories
-      | maxGeodeRobots > 2 || maxObsidianRobots > 2 =
-          filter
-            ( \i ->
-                (maxGeodeRobots <= 2 || geodeRobots i >= maxGeodeRobots - 2)
-                  && (maxObsidianRobots <= 2 || obsidianRobots i >= maxObsidianRobots - 2)
-            )
-            inventories
-      | otherwise = inventories
+    newInventories = prune inventories
     newBuyOrders
       | length inventories /= length newInventories = Data.HashSet.fromList $ map buyOrder newInventories
       | otherwise = buyOrders
+
+prune inventories
+  | maxClayRobots > maxClayRobotDiff || maxObsidianRobots > maxObsidianRobotDiff || maxGeodeRobots > maxGeodeRobotDiff =
+      filter
+        (\i -> diffClayRobotsFilter i && diffObsidianRobotsFilter i && diffGeodeRobotsFilter i)
+        inventories
+  | otherwise = inventories
+  where
+    maxClayRobotDiff = 4
+    maxObsidianRobotDiff = 3
+    maxGeodeRobotDiff = 1
+    maxClayRobots = maximum $ map clayRobots inventories
+    maxObsidianRobots = maximum $ map obsidianRobots inventories
+    maxGeodeRobots = maximum $ map geodeRobots inventories
+    diffClayRobotsFilter inventory =
+      clayRobots inventory >= maxClayRobots - maxClayRobotDiff
+        || obsidianRobots inventory >= maxObsidianRobots - maxObsidianRobotDiff
+        || geodeRobots inventory >= maxGeodeRobots - maxGeodeRobotDiff
+    diffObsidianRobotsFilter inventory =
+      obsidianRobots inventory >= maxObsidianRobots - maxObsidianRobotDiff
+        || geodeRobots inventory >= maxGeodeRobots - maxGeodeRobotDiff
+    diffGeodeRobotsFilter inventory =
+      geodeRobots inventory >= maxGeodeRobots - maxGeodeRobotDiff
 
 handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
 handleMinuteInventories blueprint ([], buyOrders) minuteNo = ([], buyOrders)

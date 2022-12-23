@@ -12,4 +12,4 @@ import UtilLib (countTrueGrid, every, readInt, replaceNth)
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
   putStrLn "Input lines:"
-  print inputLines
+  -- print inputLines
