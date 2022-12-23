@@ -27,11 +27,9 @@ taskFunc inputLines = do
   -- print $ length $ filter (\i -> geodeRobots i > 0) inventories
   -- putStrLn "Max geode robot inventory count:"
   -- print $ maximum $ map geodes inventories
-  putStrLn "Blueprint quality levels:"
-  let qualityLevels = calcBlueprintsQualityLevel 24 blueprints
-  print qualityLevels
-  putStrLn "Sum:"
-  print $ sum qualityLevels
+  qualityLevel <- calcBlueprintsQualityLevel 24 blueprints
+  putStrLn "Sum quality levels:"
+  print qualityLevel
 
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
@@ -81,11 +79,20 @@ initialInventory =
       buyOrder = ""
     }
 
-calcBlueprintsQualityLevel :: Int -> [Blueprint] -> [Int]
-calcBlueprintsQualityLevel minutes = map (calcBlueprintQualityLevel minutes)
+calcBlueprintsQualityLevel :: Int -> [Blueprint] -> IO Int
+calcBlueprintsQualityLevel minutes [] = return 0
+calcBlueprintsQualityLevel minutes (blueprint:blueprints) = do
+  level <- calcBlueprintQualityLevel minutes blueprint
+  levels <- calcBlueprintsQualityLevel minutes blueprints
+  return $ level + levels
 
-calcBlueprintQualityLevel :: Int -> Blueprint -> Int
-calcBlueprintQualityLevel minutes blueprint = blueprintId blueprint * maximum (map geodes $ fst $ calcBlueprintInventories minutes blueprint)
+calcBlueprintQualityLevel :: Int -> Blueprint -> IO Int
+calcBlueprintQualityLevel minutes blueprint = do
+  let maximumGeodes = maximum (map geodes $ fst $ calcBlueprintInventories minutes blueprint)
+  let level = blueprintId blueprint * maximumGeodes
+  putStrLn ("Blueprint " ++ show (blueprintId blueprint) ++ " quality level:")
+  putStrLn (show (blueprintId blueprint) ++ " * " ++ show maximumGeodes ++ " = " ++ show level)
+  return level
 
 calcBlueprintInventories :: Int -> Blueprint -> ([Inventory], BuyOrders)
 calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPrune blueprint) ([initialInventory], Data.HashSet.empty) [1 .. minutes]
