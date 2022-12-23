@@ -16,6 +16,9 @@ taskFunc inputLines = do
   putStrLn "Blueprints:"
   let blueprints = parseInputLines inputLines
   print blueprints
+  putStrLn "Blueprint 1 inventories after minute 3:"
+  let inventories = calcBlueprintInventories 3 (head blueprints)
+  print inventories
 
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
@@ -51,6 +54,79 @@ parseInputLine str = Blueprint {blueprintId, oreRobotPrice, clayRobotPrice, obsi
           obsidianPrice = UtilLib.readInt $ head $ splitOn " " $ last $ splitOn " ore and " geodeRobotPriceStr
         }
 
+initialInventory :: Inventory
+initialInventory =
+  Inventory
+    { oreRobots = 1,
+      clayRobots = 0,
+      obsidianRobots = 0,
+      geodeRobots = 0,
+      ore = 0,
+      clay = 0,
+      obsidian = 0,
+      geodes = 0
+    }
+
+calcBlueprintsInventories :: Int -> [Blueprint] -> [[Inventory]]
+calcBlueprintsInventories minutes = map (calcBlueprintInventories minutes)
+
+calcBlueprintInventories :: Int -> Blueprint -> [Inventory]
+calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventories blueprint) [initialInventory] [1 .. minutes]
+
+handleMinuteInventories :: Blueprint -> [Inventory] -> Int -> [Inventory]
+handleMinuteInventories blueprint inventories minuteNo = concatMap (handleMinuteInventory blueprint) inventories
+
+handleMinuteInventory :: Blueprint -> Inventory -> [Inventory]
+handleMinuteInventory blueprint inventory = map (produce inventory) boughtGeodeRobotsInventories
+  where
+    boughtOreRobotsInventories = buyRobots (oreRobotPrice blueprint) oreRobotIncrementer [inventory]
+    boughtClayRobotsInventories = buyRobots (clayRobotPrice blueprint) clayRobotIncrementer boughtOreRobotsInventories
+    boughtObsidianRobotsInventories = buyRobots (obsidianRobotPrice blueprint) obsidianRobotIncrementer boughtClayRobotsInventories
+    boughtGeodeRobotsInventories = buyRobots (geodeRobotPrice blueprint) geodeRobotIncrementer boughtObsidianRobotsInventories
+
+buyRobots :: RobotPrice -> (Inventory -> Inventory) -> [Inventory] -> [Inventory]
+buyRobots robotPrice robotIncrementer = concatMap (buyRobotsSingle robotPrice robotIncrementer)
+
+buyRobotsSingle :: RobotPrice -> (Inventory -> Inventory) -> Inventory -> [Inventory]
+buyRobotsSingle robotPrice robotIncrementer inventory =
+  inventory : case buyRobot robotPrice robotIncrementer inventory of
+    Just newInventory -> buyRobotsSingle robotPrice robotIncrementer newInventory
+    Nothing -> []
+
+buyRobot :: RobotPrice -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
+buyRobot robotPrice robotIncrementer inventory =
+  if ore paidInventory >= 0 && clay paidInventory >= 0 && obsidian paidInventory >= 0
+    then Just $ robotIncrementer paidInventory
+    else Nothing
+  where
+    paidInventory =
+      inventory
+        { ore = ore inventory - orePrice robotPrice,
+          clay = clay inventory - clayPrice robotPrice,
+          obsidian = obsidian inventory - obsidianPrice robotPrice
+        }
+
+produce :: Inventory -> Inventory -> Inventory
+produce originalInventory inventory =
+  inventory
+    { ore = ore inventory + oreRobots originalInventory,
+      clay = clay inventory + clayRobots originalInventory,
+      obsidian = obsidian inventory + obsidianRobots originalInventory,
+      geodes = geodes inventory + geodeRobots originalInventory
+    }
+
+oreRobotIncrementer :: Inventory -> Inventory
+oreRobotIncrementer inventory = inventory {oreRobots = oreRobots inventory + 1}
+
+clayRobotIncrementer :: Inventory -> Inventory
+clayRobotIncrementer inventory = inventory {clayRobots = clayRobots inventory + 1}
+
+obsidianRobotIncrementer :: Inventory -> Inventory
+obsidianRobotIncrementer inventory = inventory {obsidianRobots = obsidianRobots inventory + 1}
+
+geodeRobotIncrementer :: Inventory -> Inventory
+geodeRobotIncrementer inventory = inventory {geodeRobots = geodeRobots inventory + 1}
+
 -- Model
 
 data RobotPrice = RobotPrice
@@ -69,24 +145,14 @@ data Blueprint = Blueprint
   }
   deriving (Show, Eq)
 
-data RobotConfig = RobotConfig
+data Inventory = Inventory
   { oreRobots :: Int,
     clayRobots :: Int,
     obsidianRobots :: Int,
-    geodeRobots :: Int
-  }
-  deriving (Show, Eq)
-
-data Resources = Resources
-  { ore :: Int,
+    geodeRobots :: Int,
+    ore :: Int,
     clay :: Int,
     obsidian :: Int,
-    geode :: Int
-  }
-  deriving (Show, Eq)
-
-data Inventory = Inventory
-  { resources :: Resources,
-    robotConfig :: RobotConfig
+    geodes :: Int
   }
   deriving (Show, Eq)
