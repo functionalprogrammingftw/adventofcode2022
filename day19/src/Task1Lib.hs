@@ -16,9 +16,15 @@ taskFunc inputLines = do
   putStrLn "Blueprints:"
   let blueprints = parseInputLines inputLines
   print blueprints
-  putStrLn "Blueprint 1 inventories after minutes:"
-  let (inventories, buyOrders) = calcBlueprintInventories 19 (head blueprints)
+  -- putStrLn "Blueprint 1 inventories after minutes:"
+  let (inventories, buyOrders) = calcBlueprintInventories 20 (head blueprints)
+  -- print inventories
+  putStrLn "Blueprint 1 buy orders length after minutes:"
+  print $ length buyOrders
+  putStrLn "Blueprint 1 inventory count after minutes:"
   print $ length inventories
+  putStrLn "Geode robot inventory count:"
+  print $ length $ filter (\i -> geodeRobots i > 0) inventories
 
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
@@ -64,7 +70,8 @@ initialInventory =
       ore = 0,
       clay = 0,
       obsidian = 0,
-      geodes = 0
+      geodes = 0,
+      buyOrder = ""
     }
 
 calcBlueprintsInventories :: Int -> [Blueprint] -> [([Inventory], BuyOrders)]
@@ -77,8 +84,9 @@ handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inv
 handleMinuteInventories blueprint ([], buyOrders) minuteNo = ([], buyOrders)
 handleMinuteInventories blueprint (inventory : inventories, buyOrders) minuteNo =
   (newInventories ++ newestInventories, newestBuyOrders)
-  where (newInventories, newBuyOrders) = handleMinuteInventory blueprint inventory buyOrders
-        (newestInventories, newestBuyOrders) = handleMinuteInventories blueprint (inventories, newBuyOrders) minuteNo
+  where
+    (newInventories, newBuyOrders) = handleMinuteInventory blueprint inventory buyOrders
+    (newestInventories, newestBuyOrders) = handleMinuteInventories blueprint (inventories, newBuyOrders) minuteNo
 
 handleMinuteInventory :: Blueprint -> Inventory -> BuyOrders -> ([Inventory], BuyOrders)
 handleMinuteInventory blueprint inventory buyOrders = (map (produce inventory) boughtRobotsInventories, newBuyOrders)
@@ -86,25 +94,27 @@ handleMinuteInventory blueprint inventory buyOrders = (map (produce inventory) b
     boughtRobotsInventories =
       inventory
         : catMaybes
-          [ buyRobot (oreRobotPrice blueprint) oreRobotIncrementer inventory,
-            buyRobot (clayRobotPrice blueprint) clayRobotIncrementer inventory,
-            buyRobot (obsidianRobotPrice blueprint) obsidianRobotIncrementer inventory,
-            buyRobot (geodeRobotPrice blueprint) geodeRobotIncrementer inventory
+          [ buyRobot 'O' (oreRobotPrice blueprint) buyOrders oreRobotIncrementer inventory,
+            buyRobot 'C' (clayRobotPrice blueprint) buyOrders clayRobotIncrementer inventory,
+            buyRobot 'B' (obsidianRobotPrice blueprint) buyOrders obsidianRobotIncrementer inventory,
+            buyRobot 'G' (geodeRobotPrice blueprint) buyOrders geodeRobotIncrementer inventory
           ]
-    newBuyOrders = buyOrders
+    newBuyOrders = Data.Set.union buyOrders $ Data.Set.fromList $ map buyOrder boughtRobotsInventories
 
-buyRobot :: RobotPrice -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
-buyRobot robotPrice robotIncrementer inventory =
-  if ore paidInventory >= 0 && clay paidInventory >= 0 && obsidian paidInventory >= 0
-    then Just $ robotIncrementer paidInventory
+buyRobot :: RobotType -> RobotPrice -> BuyOrders -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
+buyRobot robotType robotPrice buyOrders robotIncrementer inventory =
+  if ore newInventory >= 0 && clay newInventory >= 0 && obsidian newInventory >= 0 && buyOrder newInventory `notElem` buyOrders
+    then Just newInventory
     else Nothing
   where
-    paidInventory =
-      inventory
-        { ore = ore inventory - orePrice robotPrice,
-          clay = clay inventory - clayPrice robotPrice,
-          obsidian = obsidian inventory - obsidianPrice robotPrice
-        }
+    newInventory =
+      robotIncrementer
+        inventory
+          { ore = ore inventory - orePrice robotPrice,
+            clay = clay inventory - clayPrice robotPrice,
+            obsidian = obsidian inventory - obsidianPrice robotPrice,
+            buyOrder = robotType : buyOrder inventory
+          }
 
 produce :: Inventory -> Inventory -> Inventory
 produce originalInventory inventory =
@@ -128,8 +138,11 @@ geodeRobotIncrementer :: Inventory -> Inventory
 geodeRobotIncrementer inventory = inventory {geodeRobots = geodeRobots inventory + 1}
 
 -- Model
-type BuyOrder = String
-type BuyOrders = Data.Set.Set String
+type BuyOrder = [RobotType]
+
+type BuyOrders = Data.Set.Set BuyOrder
+
+type RobotType = Char
 
 data RobotPrice = RobotPrice
   { orePrice :: Int,
@@ -155,6 +168,7 @@ data Inventory = Inventory
     ore :: Int,
     clay :: Int,
     obsidian :: Int,
-    geodes :: Int
+    geodes :: Int,
+    buyOrder :: BuyOrder
   }
   deriving (Show, Eq)
