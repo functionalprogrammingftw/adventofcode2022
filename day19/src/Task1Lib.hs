@@ -8,7 +8,7 @@ import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, split, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (catMaybes, fromJust)
-import qualified Data.Set (Set, delete, empty, fromList, insert, isSubsetOf, singleton, union)
+import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, singleton, union, member)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 taskFunc :: [String] -> IO ()
@@ -17,15 +17,22 @@ taskFunc inputLines = do
   let blueprints = parseInputLines inputLines
   print blueprints
   -- putStrLn "Blueprint 1 inventories after minutes:"
-  let (inventories, buyOrders) = calcBlueprintInventories 20 (head blueprints)
+  -- let (inventories, buyOrders) = calcBlueprintInventories 22 (head blueprints)
   -- print inventories
-  putStrLn "Blueprint 1 buy orders length after minutes:"
-  print $ length buyOrders
-  putStrLn "Blueprint 1 inventory count after minutes:"
-  print $ length inventories
-  putStrLn "Geode robot inventory count:"
-  print $ length $ filter (\i -> geodeRobots i > 0) inventories
-
+  -- putStrLn "Blueprint 1 buy orders length after minutes:"
+  -- print $ length buyOrders
+  -- putStrLn "Blueprint 1 inventory count after minutes:"
+  -- print $ length inventories
+  -- putStrLn "Geode robot inventory count:"
+  -- print $ length $ filter (\i -> geodeRobots i > 0) inventories
+  -- putStrLn "Max geode robot inventory count:"
+  -- print $ maximum $ map geodes inventories
+  putStrLn "Blueprint quality levels:"
+  let qualityLevels = calcBlueprintsQualityLevel 24 blueprints
+  print qualityLevels
+  putStrLn "Sum:"
+  print $ sum qualityLevels
+ 
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
 
@@ -74,11 +81,14 @@ initialInventory =
       buyOrder = ""
     }
 
-calcBlueprintsInventories :: Int -> [Blueprint] -> [([Inventory], BuyOrders)]
-calcBlueprintsInventories minutes = map (calcBlueprintInventories minutes)
+calcBlueprintsQualityLevel :: Int -> [Blueprint] -> [Int]
+calcBlueprintsQualityLevel minutes = map (calcBlueprintQualityLevel minutes)
+
+calcBlueprintQualityLevel :: Int -> Blueprint -> Int
+calcBlueprintQualityLevel minutes blueprint = blueprintId blueprint * maximum (map geodes $ fst $ calcBlueprintInventories minutes blueprint)
 
 calcBlueprintInventories :: Int -> Blueprint -> ([Inventory], BuyOrders)
-calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventories blueprint) ([initialInventory], Data.Set.empty) [1 .. minutes]
+calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventories blueprint) ([initialInventory], Data.HashSet.empty) [1 .. minutes]
 
 handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
 handleMinuteInventories blueprint ([], buyOrders) minuteNo = ([], buyOrders)
@@ -99,11 +109,11 @@ handleMinuteInventory blueprint inventory buyOrders = (map (produce inventory) b
             buyRobot 'B' (obsidianRobotPrice blueprint) buyOrders obsidianRobotIncrementer inventory,
             buyRobot 'G' (geodeRobotPrice blueprint) buyOrders geodeRobotIncrementer inventory
           ]
-    newBuyOrders = Data.Set.union buyOrders $ Data.Set.fromList $ map buyOrder boughtRobotsInventories
+    newBuyOrders = Data.HashSet.union buyOrders $ Data.HashSet.fromList $ map buyOrder boughtRobotsInventories
 
 buyRobot :: RobotType -> RobotPrice -> BuyOrders -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
 buyRobot robotType robotPrice buyOrders robotIncrementer inventory =
-  if ore newInventory >= 0 && clay newInventory >= 0 && obsidian newInventory >= 0 && buyOrder newInventory `notElem` buyOrders
+  if ore newInventory >= 0 && clay newInventory >= 0 && obsidian newInventory >= 0 && not (buyOrder newInventory `Data.HashSet.member` buyOrders)
     then Just newInventory
     else Nothing
   where
@@ -140,7 +150,7 @@ geodeRobotIncrementer inventory = inventory {geodeRobots = geodeRobots inventory
 -- Model
 type BuyOrder = [RobotType]
 
-type BuyOrders = Data.Set.Set BuyOrder
+type BuyOrders = Data.HashSet.HashSet BuyOrder
 
 type RobotType = Char
 
