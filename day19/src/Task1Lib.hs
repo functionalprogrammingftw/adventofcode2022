@@ -4,11 +4,11 @@ module Task1Lib (taskFunc) where
 
 import Control.Monad.State (MonadState (get, put), State)
 import Data.Char (ord)
+import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, member, singleton, union)
 import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, split, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (catMaybes, fromJust)
-import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, singleton, union, member)
 import UtilLib (countTrueGrid, every, readInt, replaceNth)
 
 taskFunc :: [String] -> IO ()
@@ -81,7 +81,7 @@ initialInventory =
 
 calcBlueprintsQualityLevel :: Int -> [Blueprint] -> IO Int
 calcBlueprintsQualityLevel minutes [] = return 0
-calcBlueprintsQualityLevel minutes (blueprint:blueprints) = do
+calcBlueprintsQualityLevel minutes (blueprint : blueprints) = do
   level <- calcBlueprintQualityLevel minutes blueprint
   levels <- calcBlueprintsQualityLevel minutes blueprints
   return $ level + levels
@@ -99,14 +99,22 @@ calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPr
 
 handleMinuteInventoriesAndPrune :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
 handleMinuteInventoriesAndPrune blueprint inventoriesAndBuyOrders minuteNo = (newInventories, newBuyOrders)
-  where (inventories, buyOrders) = handleMinuteInventories blueprint inventoriesAndBuyOrders minuteNo
-        maxGeodeRobots = maximum $ map geodeRobots inventories
-        newInventories
-          | maxGeodeRobots > 1 = filter (\i -> geodeRobots i >= maxGeodeRobots - 1) inventories
-          | otherwise = inventories
-        newBuyOrders
-          | length inventories /= length newInventories = Data.HashSet.fromList $ map buyOrder newInventories
-          | otherwise = buyOrders
+  where
+    (inventories, buyOrders) = handleMinuteInventories blueprint inventoriesAndBuyOrders minuteNo
+    maxObsidianRobots = maximum $ map obsidianRobots inventories
+    maxGeodeRobots = maximum $ map geodeRobots inventories
+    newInventories
+      | maxGeodeRobots > 2 || maxObsidianRobots > 2 =
+          filter
+            ( \i ->
+                (maxGeodeRobots <= 2 || geodeRobots i >= maxGeodeRobots - 2)
+                  && (maxObsidianRobots <= 2 || obsidianRobots i >= maxObsidianRobots - 2)
+            )
+            inventories
+      | otherwise = inventories
+    newBuyOrders
+      | length inventories /= length newInventories = Data.HashSet.fromList $ map buyOrder newInventories
+      | otherwise = buyOrders
 
 handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
 handleMinuteInventories blueprint ([], buyOrders) minuteNo = ([], buyOrders)
