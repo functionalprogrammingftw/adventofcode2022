@@ -16,8 +16,8 @@ taskFunc inputLines = do
   putStrLn "Blueprints:"
   let blueprints = parseInputLines inputLines
   print blueprints
-  putStrLn "Blueprint 1 inventories after minute 3:"
-  let inventories = calcBlueprintInventories 20 (head blueprints)
+  putStrLn "Blueprint 1 inventories after minutes:"
+  let (inventories, buyOrders) = calcBlueprintInventories 19 (head blueprints)
   print $ length inventories
 
 parseInputLines :: [String] -> [Blueprint]
@@ -67,17 +67,21 @@ initialInventory =
       geodes = 0
     }
 
-calcBlueprintsInventories :: Int -> [Blueprint] -> [[Inventory]]
+calcBlueprintsInventories :: Int -> [Blueprint] -> [([Inventory], BuyOrders)]
 calcBlueprintsInventories minutes = map (calcBlueprintInventories minutes)
 
-calcBlueprintInventories :: Int -> Blueprint -> [Inventory]
-calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventories blueprint) [initialInventory] [1 .. minutes]
+calcBlueprintInventories :: Int -> Blueprint -> ([Inventory], BuyOrders)
+calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventories blueprint) ([initialInventory], Data.Set.empty) [1 .. minutes]
 
-handleMinuteInventories :: Blueprint -> [Inventory] -> Int -> [Inventory]
-handleMinuteInventories blueprint inventories minuteNo = concatMap (handleMinuteInventory blueprint) inventories
+handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
+handleMinuteInventories blueprint ([], buyOrders) minuteNo = ([], buyOrders)
+handleMinuteInventories blueprint (inventory : inventories, buyOrders) minuteNo =
+  (newInventories ++ newestInventories, newestBuyOrders)
+  where (newInventories, newBuyOrders) = handleMinuteInventory blueprint inventory buyOrders
+        (newestInventories, newestBuyOrders) = handleMinuteInventories blueprint (inventories, newBuyOrders) minuteNo
 
-handleMinuteInventory :: Blueprint -> Inventory -> [Inventory]
-handleMinuteInventory blueprint inventory = map (produce inventory) boughtRobotsInventories
+handleMinuteInventory :: Blueprint -> Inventory -> BuyOrders -> ([Inventory], BuyOrders)
+handleMinuteInventory blueprint inventory buyOrders = (map (produce inventory) boughtRobotsInventories, newBuyOrders)
   where
     boughtRobotsInventories =
       inventory
@@ -87,6 +91,7 @@ handleMinuteInventory blueprint inventory = map (produce inventory) boughtRobots
             buyRobot (obsidianRobotPrice blueprint) obsidianRobotIncrementer inventory,
             buyRobot (geodeRobotPrice blueprint) geodeRobotIncrementer inventory
           ]
+    newBuyOrders = buyOrders
 
 buyRobot :: RobotPrice -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
 buyRobot robotPrice robotIncrementer inventory =
@@ -123,6 +128,8 @@ geodeRobotIncrementer :: Inventory -> Inventory
 geodeRobotIncrementer inventory = inventory {geodeRobots = geodeRobots inventory + 1}
 
 -- Model
+type BuyOrder = String
+type BuyOrders = Data.Set.Set String
 
 data RobotPrice = RobotPrice
   { orePrice :: Int,
