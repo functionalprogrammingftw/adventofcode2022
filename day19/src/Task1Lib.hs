@@ -16,8 +16,8 @@ taskFunc inputLines = do
   putStrLn "Blueprints:"
   let blueprints = parseInputLines inputLines
   print blueprints
+  -- let (inventories, buyOrders) = calcBlueprintInventories 24 (head blueprints)
   -- putStrLn "Blueprint 1 inventories after minutes:"
-  -- let (inventories, buyOrders) = calcBlueprintInventories 22 (head blueprints)
   -- print inventories
   -- putStrLn "Blueprint 1 buy orders length after minutes:"
   -- print $ length buyOrders
@@ -32,7 +32,7 @@ taskFunc inputLines = do
   print qualityLevels
   putStrLn "Sum:"
   print $ sum qualityLevels
- 
+
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
 
@@ -88,7 +88,18 @@ calcBlueprintQualityLevel :: Int -> Blueprint -> Int
 calcBlueprintQualityLevel minutes blueprint = blueprintId blueprint * maximum (map geodes $ fst $ calcBlueprintInventories minutes blueprint)
 
 calcBlueprintInventories :: Int -> Blueprint -> ([Inventory], BuyOrders)
-calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventories blueprint) ([initialInventory], Data.HashSet.empty) [1 .. minutes]
+calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPrune blueprint) ([initialInventory], Data.HashSet.empty) [1 .. minutes]
+
+handleMinuteInventoriesAndPrune :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
+handleMinuteInventoriesAndPrune blueprint inventoriesAndBuyOrders minuteNo = (newInventories, newBuyOrders)
+  where (inventories, buyOrders) = handleMinuteInventories blueprint inventoriesAndBuyOrders minuteNo
+        maxGeodeRobots = maximum $ map geodeRobots inventories
+        newInventories
+          | maxGeodeRobots > 1 = filter (\i -> geodeRobots i >= maxGeodeRobots - 1) inventories
+          | otherwise = inventories
+        newBuyOrders
+          | length inventories /= length newInventories = Data.HashSet.fromList $ map buyOrder newInventories
+          | otherwise = buyOrders
 
 handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
 handleMinuteInventories blueprint ([], buyOrders) minuteNo = ([], buyOrders)
