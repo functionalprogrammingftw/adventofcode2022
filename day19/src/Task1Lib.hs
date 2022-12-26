@@ -105,33 +105,37 @@ handleMinuteInventoriesAndPrune blueprint inventories minutesLeft = newestInvent
     newestInventories = prune newInventories minutesLeft
 
 prune :: [Inventory] -> Int -> [Inventory]
--- prune inventories minutesLeft = inventories
-prune inventories minutesLeft = UtilLib.filterIndexed noBetterInventories inventories
-  where
-    noBetterInventories idx inventory = not $ UtilLib.anyIndexed (fstInventoryWorse idx inventory) inventories
-    fstInventoryWorse fstIdx fstInventory sndIdx sndInventory =
-      ore fstInventory <= ore sndInventory
-        && clay fstInventory <= clay sndInventory
-        && obsidian fstInventory <= obsidian sndInventory
-        && geodes fstInventory <= geodes sndInventory
-        && oreRobots fstInventory <= oreRobots sndInventory
-        && clayRobots fstInventory <= clayRobots sndInventory
-        && obsidianRobots fstInventory <= obsidianRobots sndInventory
-        && geodeRobots fstInventory <= geodeRobots sndInventory
-        && ( sumInventory fstInventory < sumInventory sndInventory
-               || fstIdx > sndIdx
-           )
+prune inventories minutesLeft = foldl pruneFold [] inventories
 
-sumInventory :: Inventory -> Int
-sumInventory inventory =
-  ore inventory
-    + clay inventory
-    + obsidian inventory
-    + geodes inventory
-    + oreRobots inventory
-    + clayRobots inventory
-    + obsidianRobots inventory
-    + geodeRobots inventory
+pruneFold :: [Inventory] -> Inventory -> [Inventory]
+pruneFold inventories inventory
+  | betterExists = inventories
+  | otherwise = inventory : filteredInventories
+  where
+    betterExists = any (fstInventoryWorse inventory) inventories
+    filteredInventories = filter (not . fstInventoryBetter inventory) inventories
+
+fstInventoryWorse :: Inventory -> Inventory -> Bool
+fstInventoryWorse fstInventory sndInventory =
+  ore fstInventory <= ore sndInventory
+    && clay fstInventory <= clay sndInventory
+    && obsidian fstInventory <= obsidian sndInventory
+    && geodes fstInventory <= geodes sndInventory
+    && oreRobots fstInventory <= oreRobots sndInventory
+    && clayRobots fstInventory <= clayRobots sndInventory
+    && obsidianRobots fstInventory <= obsidianRobots sndInventory
+    && geodeRobots fstInventory <= geodeRobots sndInventory
+
+fstInventoryBetter :: Inventory -> Inventory -> Bool
+fstInventoryBetter fstInventory sndInventory =
+  ore fstInventory >= ore sndInventory
+    && clay fstInventory >= clay sndInventory
+    && obsidian fstInventory >= obsidian sndInventory
+    && geodes fstInventory >= geodes sndInventory
+    && oreRobots fstInventory >= oreRobots sndInventory
+    && clayRobots fstInventory >= clayRobots sndInventory
+    && obsidianRobots fstInventory >= obsidianRobots sndInventory
+    && geodeRobots fstInventory >= geodeRobots sndInventory
 
 handleMinuteInventories :: Blueprint -> [Inventory] -> [Inventory]
 handleMinuteInventories blueprint [] = []
