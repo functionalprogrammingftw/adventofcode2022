@@ -19,11 +19,9 @@ taskFunc inputLines = do
   let blueprint = blueprints !! 0
   putStrLn "Blueprint:"
   print blueprint
-  let (inventories, buyOrders) = calcBlueprintInventories 22 blueprint
+  let inventories = calcBlueprintInventories 18 blueprint
   -- putStrLn "Blueprint 1 inventories after minutes:"
   -- print inventories
-  putStrLn "Blueprint 1 buy orders length after minutes:"
-  print $ length buyOrders
   putStrLn "Blueprint 1 inventory count after minutes:"
   print $ length inventories
   putStrLn "Geode robot inventory count:"
@@ -79,8 +77,7 @@ initialInventory =
       ore = 0,
       clay = 0,
       obsidian = 0,
-      geodes = 0,
-      buyOrder = ""
+      geodes = 0
     }
 
 calcBlueprintsQualityLevel :: Int -> [Blueprint] -> IO Int
@@ -92,23 +89,20 @@ calcBlueprintsQualityLevel minutes (blueprint : blueprints) = do
 
 calcBlueprintQualityLevel :: Int -> Blueprint -> IO Int
 calcBlueprintQualityLevel minutes blueprint = do
-  let maximumGeodes = maximum (map geodes $ fst $ calcBlueprintInventories minutes blueprint)
+  let maximumGeodes = maximum (map geodes $ calcBlueprintInventories minutes blueprint)
   let level = blueprintId blueprint * maximumGeodes
   putStrLn ("Blueprint " ++ show (blueprintId blueprint) ++ " quality level:")
   putStrLn (show (blueprintId blueprint) ++ " * " ++ show maximumGeodes ++ " = " ++ show level)
   return level
 
-calcBlueprintInventories :: Int -> Blueprint -> ([Inventory], BuyOrders)
-calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPrune blueprint) ([initialInventory], Data.HashSet.empty) [minutes - 1, minutes - 2 .. 0]
+calcBlueprintInventories :: Int -> Blueprint -> [Inventory]
+calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPrune blueprint) [initialInventory] [minutes - 1, minutes - 2 .. 0]
 
-handleMinuteInventoriesAndPrune :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
-handleMinuteInventoriesAndPrune blueprint inventoriesAndBuyOrders minutesLeft = (newInventories, newBuyOrders)
+handleMinuteInventoriesAndPrune :: Blueprint -> [Inventory] -> Int -> [Inventory]
+handleMinuteInventoriesAndPrune blueprint inventories minutesLeft = newestInventories
   where
-    (inventories, buyOrders) = handleMinuteInventories blueprint inventoriesAndBuyOrders
-    newInventories = prune inventories minutesLeft
-    newBuyOrders
-      | length inventories /= length newInventories = Data.HashSet.fromList $ map buyOrder newInventories
-      | otherwise = buyOrders
+    newInventories = handleMinuteInventories blueprint inventories
+    newestInventories = prune newInventories minutesLeft
 
 prune :: [Inventory] -> Int -> [Inventory]
 -- prune inventories minutesLeft = inventories
@@ -139,30 +133,29 @@ sumInventory inventory =
     + obsidianRobots inventory
     + geodeRobots inventory
 
-handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> ([Inventory], BuyOrders)
-handleMinuteInventories blueprint ([], buyOrders) = ([], buyOrders)
-handleMinuteInventories blueprint (inventory : inventories, buyOrders) =
-  (newInventories ++ newestInventories, newestBuyOrders)
+handleMinuteInventories :: Blueprint -> [Inventory] -> [Inventory]
+handleMinuteInventories blueprint [] = []
+handleMinuteInventories blueprint (inventory : inventories) =
+  newInventories ++ newestInventories
   where
-    (newInventories, newBuyOrders) = handleMinuteInventory blueprint inventory buyOrders
-    (newestInventories, newestBuyOrders) = handleMinuteInventories blueprint (inventories, newBuyOrders)
+    newInventories = handleMinuteInventory blueprint inventory
+    newestInventories = handleMinuteInventories blueprint inventories
 
-handleMinuteInventory :: Blueprint -> Inventory -> BuyOrders -> ([Inventory], BuyOrders)
-handleMinuteInventory blueprint inventory buyOrders = (map (produce inventory) boughtRobotsInventories, newBuyOrders)
+handleMinuteInventory :: Blueprint -> Inventory -> [Inventory]
+handleMinuteInventory blueprint inventory = map (produce inventory) boughtRobotsInventories
   where
     boughtRobotsInventories =
       inventory
         : catMaybes
-          [ buyRobot 'O' (oreRobotPrice blueprint) buyOrders oreRobotIncrementer inventory,
-            buyRobot 'C' (clayRobotPrice blueprint) buyOrders clayRobotIncrementer inventory,
-            buyRobot 'B' (obsidianRobotPrice blueprint) buyOrders obsidianRobotIncrementer inventory,
-            buyRobot 'G' (geodeRobotPrice blueprint) buyOrders geodeRobotIncrementer inventory
+          [ buyRobot 'O' (oreRobotPrice blueprint) oreRobotIncrementer inventory,
+            buyRobot 'C' (clayRobotPrice blueprint) clayRobotIncrementer inventory,
+            buyRobot 'B' (obsidianRobotPrice blueprint) obsidianRobotIncrementer inventory,
+            buyRobot 'G' (geodeRobotPrice blueprint) geodeRobotIncrementer inventory
           ]
-    newBuyOrders = Data.HashSet.union buyOrders $ Data.HashSet.fromList $ map buyOrder boughtRobotsInventories
 
-buyRobot :: RobotType -> RobotPrice -> BuyOrders -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
-buyRobot robotType robotPrice buyOrders robotIncrementer inventory =
-  if ore newInventory >= 0 && clay newInventory >= 0 && obsidian newInventory >= 0 && not (buyOrder newInventory `Data.HashSet.member` buyOrders)
+buyRobot :: RobotType -> RobotPrice -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
+buyRobot robotType robotPrice robotIncrementer inventory =
+  if ore newInventory >= 0 && clay newInventory >= 0 && obsidian newInventory >= 0
     then Just newInventory
     else Nothing
   where
@@ -171,8 +164,7 @@ buyRobot robotType robotPrice buyOrders robotIncrementer inventory =
         inventory
           { ore = ore inventory - orePrice robotPrice,
             clay = clay inventory - clayPrice robotPrice,
-            obsidian = obsidian inventory - obsidianPrice robotPrice,
-            buyOrder = robotType : buyOrder inventory
+            obsidian = obsidian inventory - obsidianPrice robotPrice
           }
 
 produce :: Inventory -> Inventory -> Inventory
@@ -197,10 +189,6 @@ geodeRobotIncrementer :: Inventory -> Inventory
 geodeRobotIncrementer inventory = inventory {geodeRobots = geodeRobots inventory + 1}
 
 -- Model
-type BuyOrder = [RobotType]
-
-type BuyOrders = Data.HashSet.HashSet BuyOrder
-
 type RobotType = Char
 
 data RobotPrice = RobotPrice
@@ -227,7 +215,6 @@ data Inventory = Inventory
     ore :: Int,
     clay :: Int,
     obsidian :: Int,
-    geodes :: Int,
-    buyOrder :: BuyOrder
+    geodes :: Int
   }
   deriving (Show, Eq)
