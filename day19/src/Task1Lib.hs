@@ -5,7 +5,7 @@ module Task1Lib (taskFunc) where
 import Control.Monad.State (MonadState (get, put), State)
 import Data.Char (ord)
 import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, member, singleton, union)
-import Data.List (any, elemIndex, insert, intercalate, nub, stripPrefix)
+import Data.List (any, elemIndex, insert, intercalate, nub, stripPrefix, foldl')
 import Data.List.Split (chunk, split, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (catMaybes, fromJust)
@@ -19,7 +19,7 @@ taskFunc inputLines = do
   let blueprint = blueprints !! 0
   putStrLn "Blueprint:"
   print blueprint
-  let inventories = calcBlueprintInventories 18 blueprint
+  let inventories = calcBlueprintInventories 22 blueprint
   -- putStrLn "Blueprint 1 inventories after minutes:"
   -- print inventories
   putStrLn "Blueprint 1 inventory count after minutes:"
@@ -96,7 +96,7 @@ calcBlueprintQualityLevel minutes blueprint = do
   return level
 
 calcBlueprintInventories :: Int -> Blueprint -> [Inventory]
-calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPrune blueprint) [initialInventory] [minutes - 1, minutes - 2 .. 0]
+calcBlueprintInventories minutes blueprint = foldl' (handleMinuteInventoriesAndPrune blueprint) [initialInventory] [minutes - 1, minutes - 2 .. 0]
 
 handleMinuteInventoriesAndPrune :: Blueprint -> [Inventory] -> Int -> [Inventory]
 handleMinuteInventoriesAndPrune blueprint inventories minutesLeft = newestInventories
@@ -105,10 +105,10 @@ handleMinuteInventoriesAndPrune blueprint inventories minutesLeft = newestInvent
     newestInventories = prune newInventories minutesLeft
 
 prune :: [Inventory] -> Int -> [Inventory]
-prune inventories minutesLeft = foldl pruneFold [] inventories
+prune inventories minutesLeft = foldr pruneFold [] inventories
 
-pruneFold :: [Inventory] -> Inventory -> [Inventory]
-pruneFold inventories inventory
+pruneFold :: Inventory -> [Inventory] -> [Inventory]
+pruneFold inventory inventories
   | betterExists = inventories
   | otherwise = inventory : filteredInventories
   where
