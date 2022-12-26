@@ -16,22 +16,24 @@ taskFunc inputLines = do
   let blueprints = parseInputLines inputLines
   -- putStrLn "Blueprints:"
   -- print blueprints
-  let blueprint = blueprints !! 0
-  putStrLn "Blueprint:"
-  print blueprint
-  let inventories = calcBlueprintInventories 18 24 blueprint
+  -- let blueprint = blueprints !! 0
+  -- putStrLn "Blueprint:"
+  -- print blueprint
+  -- let inventories = calcBlueprintInventories 24 24 blueprint
   -- putStrLn "Blueprint 1 inventories after minutes:"
   -- print inventories
-  putStrLn "Blueprint 1 inventory count after minutes:"
-  print $ length inventories
-  putStrLn "Geode inventory count:"
-  print $ length $ filter (\i -> geodes i > 0) inventories
-  putStrLn "Max geode inventory count:"
-  print $ maximum $ map geodes inventories
+  -- putStrLn "Blueprint 1 inventory count after minutes:"
+  -- print $ length inventories
+  -- putStrLn "Geode inventory count:"
+  -- print $ length $ filter (\i -> geodes i > 0) inventories
+  -- putStrLn "Max geode inventory count:"
+  -- print $ maximum $ map geodes inventories
+  -- putStrLn "maxMinGeodes:"
+  -- print $ maximum $ map (calcMinGeodes blueprint 0) inventories
 
--- qualityLevel <- calcBlueprintsQualityLevel 24 blueprints
--- putStrLn "Sum quality levels:"
--- print qualityLevel
+  qualityLevel <- calcBlueprintsQualityLevel 24 blueprints
+  putStrLn "Sum quality levels:"
+  print qualityLevel
 
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
@@ -104,10 +106,12 @@ handleMinuteInventoriesAndPrune :: Blueprint -> [Inventory] -> Int -> [Inventory
 handleMinuteInventoriesAndPrune blueprint inventories minutesLeft = newestInventories
   where
     newInventories = handleMinuteInventories blueprint inventories minutesLeft
-    newestInventories = prune newInventories minutesLeft
+    newestInventories = prune blueprint newInventories minutesLeft
 
-prune :: [Inventory] -> Int -> [Inventory]
-prune inventories minutesLeft = foldr pruneFold [] inventories
+prune :: Blueprint -> [Inventory] -> Int -> [Inventory]
+prune blueprint inventories minutesLeft = foldr pruneFold [] newInventories
+  where maxMinGeodes = maximum $ map (calcMinGeodes blueprint minutesLeft) inventories
+        newInventories = filter (maxGeodesGreaterThanOrEqual blueprint minutesLeft maxMinGeodes) inventories
 
 pruneFold :: Inventory -> [Inventory] -> [Inventory]
 pruneFold inventory inventories
@@ -136,6 +140,34 @@ fstInventoryBetter fstInventory sndInventory =
     && oreRobots fstInventory >= oreRobots sndInventory
     && clayRobots fstInventory >= clayRobots sndInventory
     && obsidianRobots fstInventory >= obsidianRobots sndInventory
+
+calcMinGeodes :: Blueprint -> Int -> Inventory -> Int
+calcMinGeodes blueprint 0 inventory = geodes inventory
+calcMinGeodes blueprint 1 inventory = geodes inventory
+calcMinGeodes blueprint minutesLeft inventory =
+  geodes inventory
+    + if calcCanBuyGeodeRobotNextRound blueprint inventory (minutesLeft - 1) then minutesLeft - 1 else 0
+
+maxGeodesGreaterThanOrEqual :: Blueprint -> Int -> Int -> Inventory -> Bool
+maxGeodesGreaterThanOrEqual blueprint minutesLeft maxMinGeodes inventory = calcMaxGeodes blueprint minutesLeft inventory >= maxMinGeodes
+
+calcMaxGeodes :: Blueprint -> Int -> Inventory -> Int
+calcMaxGeodes blueprint 0 inventory = geodes inventory
+calcMaxGeodes blueprint 1 inventory = geodes inventory
+calcMaxGeodes blueprint minutesLeft inventory = geodes inventory + calcMaxFutureGeodes blueprint inventory firstPossBuyRound
+  where
+    firstPossBuyRound = if calcCanBuyGeodeRobotNextRound blueprint inventory (minutesLeft - 1) then minutesLeft - 1 else minutesLeft - 2
+
+calcMaxFutureGeodes :: Blueprint -> Inventory -> Int -> Int
+calcMaxFutureGeodes blueprint inventory 0 = 0
+calcMaxFutureGeodes blueprint inventory minutesLeft = minutesLeft + calcMaxFutureGeodes blueprint inventory (minutesLeft - 1)
+
+calcCanBuyGeodeRobotNextRound :: Blueprint -> Inventory -> Int -> Bool
+calcCanBuyGeodeRobotNextRound blueprint inventory minutesLeft = case buyResult of
+  Nothing -> False
+  _ -> True
+  where
+    buyResult = buyRobot (geodeRobotPrice blueprint) (geodeRobotIncrementer (minutesLeft - 1)) inventory
 
 handleMinuteInventories :: Blueprint -> [Inventory] -> Int -> [Inventory]
 handleMinuteInventories blueprint [] _ = []
