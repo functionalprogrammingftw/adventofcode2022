@@ -5,34 +5,35 @@ module Task1Lib (taskFunc) where
 import Control.Monad.State (MonadState (get, put), State)
 import Data.Char (ord)
 import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, member, singleton, union)
-import Data.List (elemIndex, insert, intercalate, nub, stripPrefix)
+import Data.List (any, elemIndex, insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, split, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (catMaybes, fromJust)
-import UtilLib (countTrueGrid, every, readInt, replaceNth)
+import UtilLib (anyIndexed, countTrueGrid, every, filterIndexed, readInt, replaceNth)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-  putStrLn "Blueprints:"
   let blueprints = parseInputLines inputLines
-  print blueprints
-  -- putStrLn "Blueprint:"
-  -- let blueprint = blueprints !! 3
-  -- print blueprint
-  -- let (inventories, buyOrders) = calcBlueprintInventories 22 blueprint
-  -- putStrLn "Blueprint 4 inventories after minutes:"
+  -- putStrLn "Blueprints:"
+  -- print blueprints
+  let blueprint = blueprints !! 0
+  putStrLn "Blueprint:"
+  print blueprint
+  let (inventories, buyOrders) = calcBlueprintInventories 22 blueprint
+  -- putStrLn "Blueprint 1 inventories after minutes:"
   -- print inventories
-  -- putStrLn "Blueprint 4 buy orders length after minutes:"
-  -- print $ length buyOrders
-  -- putStrLn "Blueprint 4 inventory count after minutes:"
-  -- print $ length inventories
-  -- putStrLn "Geode robot inventory count:"
-  -- print $ length $ filter (\i -> geodeRobots i > 0) inventories
-  -- putStrLn "Max geode robot inventory count:"
-  -- print $ maximum $ map geodes inventories
-  qualityLevel <- calcBlueprintsQualityLevel 24 blueprints
-  putStrLn "Sum quality levels:"
-  print qualityLevel
+  putStrLn "Blueprint 1 buy orders length after minutes:"
+  print $ length buyOrders
+  putStrLn "Blueprint 1 inventory count after minutes:"
+  print $ length inventories
+  putStrLn "Geode robot inventory count:"
+  print $ length $ filter (\i -> geodeRobots i > 0) inventories
+  putStrLn "Max geode robot inventory count:"
+  print $ maximum $ map geodes inventories
+
+-- qualityLevel <- calcBlueprintsQualityLevel 24 blueprints
+-- putStrLn "Sum quality levels:"
+-- print qualityLevel
 
 parseInputLines :: [String] -> [Blueprint]
 parseInputLines = map parseInputLine
@@ -98,47 +99,53 @@ calcBlueprintQualityLevel minutes blueprint = do
   return level
 
 calcBlueprintInventories :: Int -> Blueprint -> ([Inventory], BuyOrders)
-calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPrune blueprint) ([initialInventory], Data.HashSet.empty) [1 .. minutes]
+calcBlueprintInventories minutes blueprint = foldl (handleMinuteInventoriesAndPrune blueprint) ([initialInventory], Data.HashSet.empty) [minutes - 1, minutes - 2 .. 0]
 
 handleMinuteInventoriesAndPrune :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
-handleMinuteInventoriesAndPrune blueprint inventoriesAndBuyOrders minuteNo = (newInventories, newBuyOrders)
+handleMinuteInventoriesAndPrune blueprint inventoriesAndBuyOrders minutesLeft = (newInventories, newBuyOrders)
   where
-    (inventories, buyOrders) = handleMinuteInventories blueprint inventoriesAndBuyOrders minuteNo
-    newInventories = prune inventories
+    (inventories, buyOrders) = handleMinuteInventories blueprint inventoriesAndBuyOrders
+    newInventories = prune inventories minutesLeft
     newBuyOrders
       | length inventories /= length newInventories = Data.HashSet.fromList $ map buyOrder newInventories
       | otherwise = buyOrders
 
-prune inventories
-  | maxClayRobots > maxClayRobotDiff || maxObsidianRobots > maxObsidianRobotDiff || maxGeodeRobots > maxGeodeRobotDiff =
-      filter
-        (\i -> diffClayRobotsFilter i && diffObsidianRobotsFilter i && diffGeodeRobotsFilter i)
-        inventories
-  | otherwise = inventories
+prune :: [Inventory] -> Int -> [Inventory]
+-- prune inventories minutesLeft = inventories
+prune inventories minutesLeft = UtilLib.filterIndexed noBetterInventories inventories
   where
-    maxClayRobotDiff = 4
-    maxObsidianRobotDiff = 3
-    maxGeodeRobotDiff = 1
-    maxClayRobots = maximum $ map clayRobots inventories
-    maxObsidianRobots = maximum $ map obsidianRobots inventories
-    maxGeodeRobots = maximum $ map geodeRobots inventories
-    diffClayRobotsFilter inventory =
-      clayRobots inventory >= maxClayRobots - maxClayRobotDiff
-        || obsidianRobots inventory >= maxObsidianRobots - maxObsidianRobotDiff
-        || geodeRobots inventory >= maxGeodeRobots - maxGeodeRobotDiff
-    diffObsidianRobotsFilter inventory =
-      obsidianRobots inventory >= maxObsidianRobots - maxObsidianRobotDiff
-        || geodeRobots inventory >= maxGeodeRobots - maxGeodeRobotDiff
-    diffGeodeRobotsFilter inventory =
-      geodeRobots inventory >= maxGeodeRobots - maxGeodeRobotDiff
+    noBetterInventories idx inventory = not $ UtilLib.anyIndexed (fstInventoryWorse idx inventory) inventories
+    fstInventoryWorse fstIdx fstInventory sndIdx sndInventory =
+      ore fstInventory <= ore sndInventory
+        && clay fstInventory <= clay sndInventory
+        && obsidian fstInventory <= obsidian sndInventory
+        && geodes fstInventory <= geodes sndInventory
+        && oreRobots fstInventory <= oreRobots sndInventory
+        && clayRobots fstInventory <= clayRobots sndInventory
+        && obsidianRobots fstInventory <= obsidianRobots sndInventory
+        && geodeRobots fstInventory <= geodeRobots sndInventory
+        && ( sumInventory fstInventory < sumInventory sndInventory
+               || fstIdx > sndIdx
+           )
 
-handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> Int -> ([Inventory], BuyOrders)
-handleMinuteInventories blueprint ([], buyOrders) minuteNo = ([], buyOrders)
-handleMinuteInventories blueprint (inventory : inventories, buyOrders) minuteNo =
+sumInventory :: Inventory -> Int
+sumInventory inventory =
+  ore inventory
+    + clay inventory
+    + obsidian inventory
+    + geodes inventory
+    + oreRobots inventory
+    + clayRobots inventory
+    + obsidianRobots inventory
+    + geodeRobots inventory
+
+handleMinuteInventories :: Blueprint -> ([Inventory], BuyOrders) -> ([Inventory], BuyOrders)
+handleMinuteInventories blueprint ([], buyOrders) = ([], buyOrders)
+handleMinuteInventories blueprint (inventory : inventories, buyOrders) =
   (newInventories ++ newestInventories, newestBuyOrders)
   where
     (newInventories, newBuyOrders) = handleMinuteInventory blueprint inventory buyOrders
-    (newestInventories, newestBuyOrders) = handleMinuteInventories blueprint (inventories, newBuyOrders) minuteNo
+    (newestInventories, newestBuyOrders) = handleMinuteInventories blueprint (inventories, newBuyOrders)
 
 handleMinuteInventory :: Blueprint -> Inventory -> BuyOrders -> ([Inventory], BuyOrders)
 handleMinuteInventory blueprint inventory buyOrders = (map (produce inventory) boughtRobotsInventories, newBuyOrders)

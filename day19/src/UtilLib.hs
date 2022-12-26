@@ -12,8 +12,12 @@ module UtilLib (
     countTrueGrid,
     replaceNth,
     fpow,
-    primeFactors
+    primeFactors,
+    filterIndexed,
+    anyIndexed
 ) where
+
+import Data.List (any)
 
 readInt :: String -> Int
 readInt = read
@@ -79,3 +83,9 @@ primeFactors n =
     [] -> [n]
     _  -> factors ++ primeFactors (n `div` (head factors))
   where factors = take 1 $ filter (\x -> (n `mod` x) == 0) [2 .. n-1]
+
+filterIndexed f = map snd . filter (uncurry f) . enumerate
+
+anyIndexed f = any (uncurry f) . enumerate
+
+enumerate = zip [0..]
