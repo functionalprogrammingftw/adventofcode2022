@@ -5,7 +5,7 @@ module Task1Lib (taskFunc) where
 import Control.Monad.State (MonadState (get, put), State)
 import Data.Char (ord)
 import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, member, singleton, union)
-import Data.List (any, elemIndex, insert, intercalate, nub, stripPrefix, foldl')
+import Data.List (any, elemIndex, foldl', insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, split, splitOn)
 import qualified Data.Map (Map, empty, insert, lookup)
 import Data.Maybe (catMaybes, fromJust)
@@ -19,14 +19,14 @@ taskFunc inputLines = do
   let blueprint = blueprints !! 0
   putStrLn "Blueprint:"
   print blueprint
-  let inventories = calcBlueprintInventories 22 blueprint
+  let inventories = calcBlueprintInventories 18 24 blueprint
   -- putStrLn "Blueprint 1 inventories after minutes:"
   -- print inventories
   putStrLn "Blueprint 1 inventory count after minutes:"
   print $ length inventories
-  putStrLn "Geode robot inventory count:"
-  print $ length $ filter (\i -> geodeRobots i > 0) inventories
-  putStrLn "Max geode robot inventory count:"
+  putStrLn "Geode inventory count:"
+  print $ length $ filter (\i -> geodes i > 0) inventories
+  putStrLn "Max geode inventory count:"
   print $ maximum $ map geodes inventories
 
 -- qualityLevel <- calcBlueprintsQualityLevel 24 blueprints
@@ -73,7 +73,6 @@ initialInventory =
     { oreRobots = 1,
       clayRobots = 0,
       obsidianRobots = 0,
-      geodeRobots = 0,
       ore = 0,
       clay = 0,
       obsidian = 0,
@@ -89,19 +88,22 @@ calcBlueprintsQualityLevel minutes (blueprint : blueprints) = do
 
 calcBlueprintQualityLevel :: Int -> Blueprint -> IO Int
 calcBlueprintQualityLevel minutes blueprint = do
-  let maximumGeodes = maximum (map geodes $ calcBlueprintInventories minutes blueprint)
+  let maximumGeodes = maximum (map geodes $ calcBlueprintInventories minutes 24 blueprint)
   let level = blueprintId blueprint * maximumGeodes
   putStrLn ("Blueprint " ++ show (blueprintId blueprint) ++ " quality level:")
   putStrLn (show (blueprintId blueprint) ++ " * " ++ show maximumGeodes ++ " = " ++ show level)
   return level
 
-calcBlueprintInventories :: Int -> Blueprint -> [Inventory]
-calcBlueprintInventories minutes blueprint = foldl' (handleMinuteInventoriesAndPrune blueprint) [initialInventory] [minutes - 1, minutes - 2 .. 0]
+calcBlueprintInventories :: Int -> Int -> Blueprint -> [Inventory]
+calcBlueprintInventories minutes totalMinutes blueprint =
+  foldl' (handleMinuteInventoriesAndPrune blueprint) [initialInventory] [minutes + diff - 1, minutes + diff - 2 .. diff]
+  where
+    diff = totalMinutes - minutes
 
 handleMinuteInventoriesAndPrune :: Blueprint -> [Inventory] -> Int -> [Inventory]
 handleMinuteInventoriesAndPrune blueprint inventories minutesLeft = newestInventories
   where
-    newInventories = handleMinuteInventories blueprint inventories
+    newInventories = handleMinuteInventories blueprint inventories minutesLeft
     newestInventories = prune newInventories minutesLeft
 
 prune :: [Inventory] -> Int -> [Inventory]
@@ -124,7 +126,6 @@ fstInventoryWorse fstInventory sndInventory =
     && oreRobots fstInventory <= oreRobots sndInventory
     && clayRobots fstInventory <= clayRobots sndInventory
     && obsidianRobots fstInventory <= obsidianRobots sndInventory
-    && geodeRobots fstInventory <= geodeRobots sndInventory
 
 fstInventoryBetter :: Inventory -> Inventory -> Bool
 fstInventoryBetter fstInventory sndInventory =
@@ -135,30 +136,29 @@ fstInventoryBetter fstInventory sndInventory =
     && oreRobots fstInventory >= oreRobots sndInventory
     && clayRobots fstInventory >= clayRobots sndInventory
     && obsidianRobots fstInventory >= obsidianRobots sndInventory
-    && geodeRobots fstInventory >= geodeRobots sndInventory
 
-handleMinuteInventories :: Blueprint -> [Inventory] -> [Inventory]
-handleMinuteInventories blueprint [] = []
-handleMinuteInventories blueprint (inventory : inventories) =
+handleMinuteInventories :: Blueprint -> [Inventory] -> Int -> [Inventory]
+handleMinuteInventories blueprint [] _ = []
+handleMinuteInventories blueprint (inventory : inventories) minutesLeft =
   newInventories ++ newestInventories
   where
-    newInventories = handleMinuteInventory blueprint inventory
-    newestInventories = handleMinuteInventories blueprint inventories
+    newInventories = handleMinuteInventory blueprint inventory minutesLeft
+    newestInventories = handleMinuteInventories blueprint inventories minutesLeft
 
-handleMinuteInventory :: Blueprint -> Inventory -> [Inventory]
-handleMinuteInventory blueprint inventory = map (produce inventory) boughtRobotsInventories
+handleMinuteInventory :: Blueprint -> Inventory -> Int -> [Inventory]
+handleMinuteInventory blueprint inventory minutesLeft = map (produce inventory) boughtRobotsInventories
   where
     boughtRobotsInventories =
       inventory
         : catMaybes
-          [ buyRobot 'O' (oreRobotPrice blueprint) oreRobotIncrementer inventory,
-            buyRobot 'C' (clayRobotPrice blueprint) clayRobotIncrementer inventory,
-            buyRobot 'B' (obsidianRobotPrice blueprint) obsidianRobotIncrementer inventory,
-            buyRobot 'G' (geodeRobotPrice blueprint) geodeRobotIncrementer inventory
+          [ buyRobot (oreRobotPrice blueprint) oreRobotIncrementer inventory,
+            buyRobot (clayRobotPrice blueprint) clayRobotIncrementer inventory,
+            buyRobot (obsidianRobotPrice blueprint) obsidianRobotIncrementer inventory,
+            buyRobot (geodeRobotPrice blueprint) (geodeRobotIncrementer minutesLeft) inventory
           ]
 
-buyRobot :: RobotType -> RobotPrice -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
-buyRobot robotType robotPrice robotIncrementer inventory =
+buyRobot :: RobotPrice -> (Inventory -> Inventory) -> Inventory -> Maybe Inventory
+buyRobot robotPrice robotIncrementer inventory =
   if ore newInventory >= 0 && clay newInventory >= 0 && obsidian newInventory >= 0
     then Just newInventory
     else Nothing
@@ -176,8 +176,7 @@ produce originalInventory inventory =
   inventory
     { ore = ore inventory + oreRobots originalInventory,
       clay = clay inventory + clayRobots originalInventory,
-      obsidian = obsidian inventory + obsidianRobots originalInventory,
-      geodes = geodes inventory + geodeRobots originalInventory
+      obsidian = obsidian inventory + obsidianRobots originalInventory
     }
 
 oreRobotIncrementer :: Inventory -> Inventory
@@ -189,12 +188,10 @@ clayRobotIncrementer inventory = inventory {clayRobots = clayRobots inventory + 
 obsidianRobotIncrementer :: Inventory -> Inventory
 obsidianRobotIncrementer inventory = inventory {obsidianRobots = obsidianRobots inventory + 1}
 
-geodeRobotIncrementer :: Inventory -> Inventory
-geodeRobotIncrementer inventory = inventory {geodeRobots = geodeRobots inventory + 1}
+geodeRobotIncrementer :: Int -> Inventory -> Inventory
+geodeRobotIncrementer minutesLeft inventory = inventory {geodes = geodes inventory + minutesLeft}
 
 -- Model
-type RobotType = Char
-
 data RobotPrice = RobotPrice
   { orePrice :: Int,
     clayPrice :: Int,
@@ -215,7 +212,6 @@ data Inventory = Inventory
   { oreRobots :: Int,
     clayRobots :: Int,
     obsidianRobots :: Int,
-    geodeRobots :: Int,
     ore :: Int,
     clay :: Int,
     obsidian :: Int,
