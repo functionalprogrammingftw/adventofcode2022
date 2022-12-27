@@ -40,27 +40,29 @@ parseInputLines = map parseInputLine
 parseInputLine :: String -> Int
 parseInputLine = UtilLib.readInt
 
-findCoordinates :: [Int] -> (Int, Int, Int)
-findCoordinates numbers = (x, y, z)
-  where numbersLength = length numbers
+findCoordinates :: [(Int, Int)] -> (Int, Int, Int)
+findCoordinates indexedNumbers = (x, y, z)
+  where numbers = map fst indexedNumbers
+        numbersLength = length numbers
         zeroIndex = fromJust $ elemIndex 0 numbers
         x = numbers !! ((zeroIndex + 1000) `mod` numbersLength)
         y = numbers !! ((zeroIndex + 2000) `mod` numbersLength)
         z = numbers !! ((zeroIndex + 3000) `mod` numbersLength)
 
-rearrangeNumbers :: [Int] -> [Int]
-rearrangeNumbers numbers = foldl rearrangeNumber numbers numbers
+rearrangeNumbers :: [Int] -> [(Int, Int)]
+rearrangeNumbers numbers = foldl rearrangeNumber indexedNumbers indexedNumbers
+  where indexedNumbers = zip numbers [0..]
 
-rearrangeNumber :: [Int] -> Int -> [Int]
-rearrangeNumber numbers number = take newNumberIdx numbersRemoved ++ [number] ++ drop newNumberIdx numbersRemoved
-  where numbersLength = length numbers
-        numberIdx = fromJust $ elemIndex number numbers
-        potentialNumberIdx = numberIdx + number
+rearrangeNumber :: [(Int, Int)] -> (Int, Int) -> [(Int, Int)]
+rearrangeNumber indexedNumbers indexedNumber = take newNumberIdx numbersRemoved ++ [indexedNumber] ++ drop newNumberIdx numbersRemoved
+  where numbersLength = length indexedNumbers
+        numberIdx = fromJust $ elemIndex indexedNumber indexedNumbers
+        potentialNumberIdx = numberIdx + fst indexedNumber
         newNumberIdx
           | potentialNumberIdx <= 0 = addUntilPositive potentialNumberIdx (numbersLength - 1)
           | potentialNumberIdx >= numbersLength - 1 = potentialNumberIdx `mod` (numbersLength - 1)
           | otherwise = potentialNumberIdx
-        numbersRemoved = take numberIdx numbers ++ drop (numberIdx + 1) numbers
+        numbersRemoved = take numberIdx indexedNumbers ++ drop (numberIdx + 1) indexedNumbers
 
 addUntilPositive :: Int -> Int -> Int
 addUntilPositive number toAdd
