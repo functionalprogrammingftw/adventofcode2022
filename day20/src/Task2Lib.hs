@@ -25,7 +25,7 @@ taskFunc inputLines = do
   -- let rearrangedNumbers3 = rearrangeNumber rearrangedNumbers2 (numbers !! 2) 
   -- putStrLn "Rearranged numbers:"
   -- print rearrangedNumbers3
-  let rearrangedNumbers = rearrangeNumbers numbers 
+  let rearrangedNumbers = indexAndRearrangeNumbers numbers 2
   putStrLn "Rearranged numbers:"
   print rearrangedNumbers
   let coordinates@(x, y, z) = findCoordinates rearrangedNumbers 
@@ -38,7 +38,7 @@ parseInputLines :: [String] -> [Int]
 parseInputLines = map parseInputLine
 
 parseInputLine :: String -> Int
-parseInputLine = UtilLib.readInt
+parseInputLine str = 811589153 * UtilLib.readInt str
 
 findCoordinates :: [(Int, Int)] -> (Int, Int, Int)
 findCoordinates indexedNumbers = (x, y, z)
@@ -49,12 +49,24 @@ findCoordinates indexedNumbers = (x, y, z)
         y = numbers !! ((zeroIndex + 2000) `mod` numbersLength)
         z = numbers !! ((zeroIndex + 3000) `mod` numbersLength)
 
-rearrangeNumbers :: [Int] -> [(Int, Int)]
-rearrangeNumbers numbers = foldl rearrangeNumber indexedNumbers indexedNumbers
+indexAndRearrangeNumbers :: [Int] -> Int -> [(Int, Int)]
+indexAndRearrangeNumbers numbers = rearrangeNumbers indexedNumbers indexedNumbers
   where indexedNumbers = zip numbers [0..]
 
+rearrangeNumbers :: [(Int, Int)] -> [(Int, Int)] -> Int -> [(Int, Int)]
+rearrangeNumbers indexedNumbers originalIndexedNumbers count = case count of
+  1 -> rearrangedOnce
+  _ -> rearrangeNumbers rearrangedOnce originalIndexedNumbers (count - 1)
+  where rearrangedOnce = foldl rearrangeNumber indexedNumbers originalIndexedNumbers
+
+
 rearrangeNumber :: [(Int, Int)] -> (Int, Int) -> [(Int, Int)]
-rearrangeNumber indexedNumbers indexedNumber = take newNumberIdx numbersRemoved ++ [indexedNumber] ++ drop newNumberIdx numbersRemoved
+rearrangeNumber indexedNumbers indexedNumber
+  | fst indexedNumber == 0 = indexedNumbers
+  | otherwise = rearrangeNumberExceptZero indexedNumbers indexedNumber
+
+rearrangeNumberExceptZero :: [(Int, Int)] -> (Int, Int) -> [(Int, Int)]
+rearrangeNumberExceptZero indexedNumbers indexedNumber = take newNumberIdx numbersRemoved ++ [indexedNumber] ++ drop newNumberIdx numbersRemoved
   where numbersLength = length indexedNumbers
         numberIdx = fromJust $ elemIndex indexedNumber indexedNumbers
         potentialNumberIdx = numberIdx + fst indexedNumber
