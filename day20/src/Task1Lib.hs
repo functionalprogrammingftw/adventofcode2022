@@ -14,6 +14,8 @@ taskFunc inputLines = do
   let numbers = parseInputLines inputLines
   putStrLn "Numbers:"
   print numbers
+  putStrLn "Numbers length:"
+  print $ length numbers
   -- let rearrangedNumbers1 = rearrangeNumber numbers (numbers !! 0) 
   -- putStrLn "Rearranged numbers:"
   -- print rearrangedNumbers1
