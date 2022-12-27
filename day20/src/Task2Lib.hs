@@ -25,7 +25,7 @@ taskFunc inputLines = do
   -- let rearrangedNumbers3 = rearrangeNumber rearrangedNumbers2 (numbers !! 2) 
   -- putStrLn "Rearranged numbers:"
   -- print rearrangedNumbers3
-  let rearrangedNumbers = indexAndRearrangeNumbers numbers 2
+  let rearrangedNumbers = indexAndRearrangeNumbers numbers 10
   putStrLn "Rearranged numbers:"
   print rearrangedNumbers
   let coordinates@(x, y, z) = findCoordinates rearrangedNumbers 
@@ -69,15 +69,9 @@ rearrangeNumberExceptZero :: [(Int, Int)] -> (Int, Int) -> [(Int, Int)]
 rearrangeNumberExceptZero indexedNumbers indexedNumber = take newNumberIdx numbersRemoved ++ [indexedNumber] ++ drop newNumberIdx numbersRemoved
   where numbersLength = length indexedNumbers
         numberIdx = fromJust $ elemIndex indexedNumber indexedNumbers
-        potentialNumberIdx = numberIdx + fst indexedNumber
+        potentialNumberIdx = numberIdx + (fst indexedNumber `mod` (numbersLength - 1))
         newNumberIdx
-          | potentialNumberIdx <= 0 = addUntilPositive potentialNumberIdx (numbersLength - 1)
+          | potentialNumberIdx <= 0 = potentialNumberIdx + (numbersLength - 1)
           | potentialNumberIdx >= numbersLength - 1 = potentialNumberIdx `mod` (numbersLength - 1)
           | otherwise = potentialNumberIdx
         numbersRemoved = take numberIdx indexedNumbers ++ drop (numberIdx + 1) indexedNumbers
-
-addUntilPositive :: Int -> Int -> Int
-addUntilPositive number toAdd
-  | result > 0 = result
-  | otherwise = addUntilPositive result toAdd
-  where result = number + toAdd

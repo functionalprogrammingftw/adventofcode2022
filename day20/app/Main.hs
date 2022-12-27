@@ -5,7 +5,7 @@ import qualified Task2Lib (taskFunc)
 
 main :: IO ()
 main = do
-  fileLines <- fmap lines (readFile "app/smalldata.txt")
+  fileLines <- fmap lines (readFile "app/data.txt")
   putStrLn "============= TASK 1 ============="
   Task1Lib.taskFunc fileLines
   putStrLn "============= TASK 2 ============="
