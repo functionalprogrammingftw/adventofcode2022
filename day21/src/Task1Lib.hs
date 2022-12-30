@@ -14,9 +14,12 @@ taskFunc inputLines = do
   let inputData = parseInputLines inputLines
   putStrLn "Input data:"
   print inputData
-  let result = calcResult inputData
-  putStrLn "Result:"
-  print result
+  let updatedMaps = updateMaps inputData
+  putStrLn "Updated maps:"
+  print updatedMaps
+  -- let result = calcResult inputData
+  -- putStrLn "Result:"
+  -- print result
 
 parseInputLines :: [String] -> (ExpressionMap, NumberMap)
 parseInputLines = foldl' parseInputLinesFold (Data.Map.empty, Data.Map.empty)
@@ -33,7 +36,10 @@ parseInputLinesFold (expressionMap, numberMap) inputLine
 calcResult :: (ExpressionMap, NumberMap) -> Int
 calcResult (expressionMap, numberMap) = case Data.Map.lookup "root" numberMap of
   Just rootNumber -> rootNumber
-  _ -> calcResult (newExpressionMap, newNumberMap)
+  _ -> calcResult $ updateMaps (expressionMap, numberMap)
+
+updateMaps :: (ExpressionMap, NumberMap) -> (ExpressionMap, NumberMap)
+updateMaps (expressionMap, numberMap) = (newExpressionMap, newNumberMap)
   where newNumberMap = updateNumberMap (Data.Map.toList expressionMap) numberMap
         newExpressionMap = Data.Map.filterWithKey (\monkeyName _ -> Data.Map.notMember monkeyName newNumberMap) expressionMap
 
