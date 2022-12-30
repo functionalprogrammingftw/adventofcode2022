@@ -11,11 +11,24 @@ import UtilLib (anyIndexed, countTrueGrid, every, filterIndexed, readInt, replac
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-  putStrLn "Input lines:"
-  print inputLines
+  let inputData = parseInputLines inputLines
+  putStrLn "Input data:"
+  print inputData
 
-parseInputLines :: [String] -> [Int]
-parseInputLines = map parseInputLine
+parseInputLines :: [String] -> (ExpressionMap, NumberMap)
+parseInputLines = foldl' parseInputLinesFold (Data.Map.empty, Data.Map.empty)
 
-parseInputLine :: String -> Int
-parseInputLine = UtilLib.readInt
+parseInputLinesFold :: (ExpressionMap, NumberMap) -> String -> (ExpressionMap, NumberMap)
+parseInputLinesFold (expressionMap, numberMap) inputLine
+  | length lineEndSplit == 3 = (newExpressionMap, numberMap)
+  | otherwise = (expressionMap, newNumberMap)
+  where [monkeyName, lineEnd] = splitOn ": " inputLine
+        lineEndSplit = splitOn " " lineEnd
+        newExpressionMap = Data.Map.insert monkeyName (head lineEndSplit, lineEndSplit !! 1, last lineEndSplit) expressionMap
+        newNumberMap = Data.Map.insert monkeyName (UtilLib.readInt $ head lineEndSplit) numberMap
+
+type MonkeyName = String
+type Operator = String
+type Expression = (MonkeyName, Operator, MonkeyName)
+type ExpressionMap = Data.Map.Map MonkeyName Expression
+type NumberMap = Data.Map.Map MonkeyName Int
