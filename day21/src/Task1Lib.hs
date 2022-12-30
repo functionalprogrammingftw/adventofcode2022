@@ -5,7 +5,7 @@ import Data.Char (ord)
 import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, member, singleton, union)
 import Data.List (any, elemIndex, foldl', insert, intercalate, nub, stripPrefix, findIndex)
 import Data.List.Split (chunk, split, splitOn)
-import qualified Data.Map (Map, empty, insert, lookup)
+import qualified Data.Map (Map, empty, insert, lookup, toList, filterWithKey, notMember)
 import Data.Maybe (catMaybes, fromJust)
 import UtilLib (anyIndexed, countTrueGrid, every, filterIndexed, readInt, replaceNth)
 
@@ -14,6 +14,9 @@ taskFunc inputLines = do
   let inputData = parseInputLines inputLines
   putStrLn "Input data:"
   print inputData
+  let result = calcResult inputData
+  putStrLn "Result:"
+  print result
 
 parseInputLines :: [String] -> (ExpressionMap, NumberMap)
 parseInputLines = foldl' parseInputLinesFold (Data.Map.empty, Data.Map.empty)
@@ -30,11 +33,23 @@ parseInputLinesFold (expressionMap, numberMap) inputLine
 calcResult :: (ExpressionMap, NumberMap) -> Int
 calcResult (expressionMap, numberMap) = case Data.Map.lookup "root" numberMap of
   Just rootNumber -> rootNumber
-  _ -> calcResult updatedMaps
-  where updatedMaps = updateMaps (expressionMap, numberMap)
+  _ -> calcResult (newExpressionMap, newNumberMap)
+  where newNumberMap = updateNumberMap (Data.Map.toList expressionMap) numberMap
+        newExpressionMap = Data.Map.filterWithKey (\monkeyName _ -> Data.Map.notMember monkeyName newNumberMap) expressionMap
 
-updateMaps :: (ExpressionMap, NumberMap) -> (ExpressionMap, NumberMap)
-updateMaps = undefined
+updateNumberMap :: [(MonkeyName, Expression)] -> NumberMap -> NumberMap
+updateNumberMap [] numberMap = numberMap
+updateNumberMap ((monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)):expressionTuples) numberMap =
+  case (Data.Map.lookup exprMonkeyName1 numberMap, Data.Map.lookup exprMonkeyName2 numberMap) of
+    (Just number1, Just number2) -> Data.Map.insert monkeyName (performCalculation number1 operator number2) numberMap
+    _ -> numberMap
+
+performCalculation :: Int -> String -> Int -> Int
+performCalculation number1 operator number2
+  | operator == "+" = number1 + number2
+  | operator == "-" = number1 - number2
+  | operator == "*" = number1 * number2
+  | operator == "/" = number1 `div` number2
 
 type MonkeyName = String
 type Operator = String
