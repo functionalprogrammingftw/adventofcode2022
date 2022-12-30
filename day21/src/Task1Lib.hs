@@ -27,6 +27,15 @@ parseInputLinesFold (expressionMap, numberMap) inputLine
         newExpressionMap = Data.Map.insert monkeyName (head lineEndSplit, lineEndSplit !! 1, last lineEndSplit) expressionMap
         newNumberMap = Data.Map.insert monkeyName (UtilLib.readInt $ head lineEndSplit) numberMap
 
+calcResult :: (ExpressionMap, NumberMap) -> Int
+calcResult (expressionMap, numberMap) = case Data.Map.lookup "root" numberMap of
+  Just rootNumber -> rootNumber
+  _ -> calcResult updatedMaps
+  where updatedMaps = updateMaps (expressionMap, numberMap)
+
+updateMaps :: (ExpressionMap, NumberMap) -> (ExpressionMap, NumberMap)
+updateMaps = undefined
+
 type MonkeyName = String
 type Operator = String
 type Expression = (MonkeyName, Operator, MonkeyName)
