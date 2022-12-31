@@ -5,7 +5,7 @@ import Data.Char (ord)
 import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, member, singleton, union)
 import Data.List (any, elemIndex, find, findIndex, foldl', insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, split, splitOn)
-import qualified Data.Map (Map, delete, empty, filterWithKey, insert, lookup, notMember, toList)
+import qualified Data.Map (Map, delete, empty, filterWithKey, insert, lookup, notMember, toList, unionWith)
 import Data.Maybe (catMaybes, fromJust)
 import UtilLib (anyIndexed, countTrueGrid, every, filterIndexed, readInt, replaceNth)
 
@@ -16,15 +16,15 @@ taskFunc inputLines = do
   print numberMap
   putStrLn "Expression map:"
   print expressionMap
-  let updatedExpressionMapSingle = updateExpressionMapSingle expressionMap myName
+  let updatedExpressionMapSingle = updateExpressionMapSingle expressionMap Data.Map.empty myName
   putStrLn "Updated expression map single:"
   print updatedExpressionMapSingle
-  updatedExpressionMap <- updateExpressionMapMultiple expressionMap [myName]
+  updatedExpressionMap <- updateExpressionMap expressionMap
   putStrLn "Updated expression map:"
   print updatedExpressionMap
--- let result = calcResult inputData
--- putStrLn "Result:"
--- print result
+  let result = calcResult inputData
+  putStrLn "Result:"
+  print result
 
 myName :: MonkeyName
 myName = "humn"
@@ -50,57 +50,59 @@ parseInputLinesFold (expressionMap, numberMap) inputLine
     newNumberMap = Data.Map.insert monkeyName (UtilLib.readInt $ head lineEndSplit) numberMap
     newRootExpressionMap = Data.Map.insert monkeyName (head lineEndSplit, "=", last lineEndSplit) expressionMap
 
--- updateExpressionMap :: ExpressionMap -> ExpressionMap
--- updateExpressionMap expressionMap = updateExpressionMapMultiple expressionMap [myName]
+updateExpressionMap :: ExpressionMap -> IO ExpressionMap
+updateExpressionMap expressionMap = updateExpressionMapMultiple expressionMap Data.Map.empty [myName]
 
-updateExpressionMapMultiple :: ExpressionMap -> [MonkeyName] -> IO ExpressionMap
-updateExpressionMapMultiple expressionMap [] = do
-  putStrLn "Called with expression map and no names"
+updateExpressionMapMultiple :: ExpressionMap -> ExpressionMap -> [MonkeyName] -> IO ExpressionMap
+updateExpressionMapMultiple expressionMap buildExpressionMap [] = do
+  putStrLn "Called with expression maps and no names"
   print expressionMap
+  print buildExpressionMap
   putStrLn "Finished"
-  return expressionMap
-updateExpressionMapMultiple expressionMap (resolveMonkeyName : resolveMonkeyNames) = do
-  putStrLn "Called with expression map and names"
+  return $ Data.Map.unionWith (\e1 e2 -> undefined) expressionMap buildExpressionMap
+updateExpressionMapMultiple expressionMap buildExpressionMap (resolveMonkeyName : resolveMonkeyNames) = do
+  putStrLn "Called with expression maps and names"
   print expressionMap
+  print buildExpressionMap
   print (resolveMonkeyName : resolveMonkeyNames)
-  updateExpressionMapMultiple newExpressionMap (resolveMonkeyNames ++ newResolveMonkeyNames)
+  updateExpressionMapMultiple newExpressionMap newBuildExpressionMap (resolveMonkeyNames ++ newResolveMonkeyNames)
   where
-    (newExpressionMap, newResolveMonkeyNames) = updateExpressionMapSingle expressionMap resolveMonkeyName
+    (newExpressionMap, newBuildExpressionMap, newResolveMonkeyNames) = updateExpressionMapSingle expressionMap buildExpressionMap resolveMonkeyName
 
-updateExpressionMapSingle :: ExpressionMap -> MonkeyName -> (ExpressionMap, [MonkeyName])
-updateExpressionMapSingle expressionMap resolveMonkeyName = case findResult of
-  Just item -> updateExpressionMapSingleFound expressionMap resolveMonkeyName item
-  Nothing -> (expressionMap, [])
+updateExpressionMapSingle :: ExpressionMap -> ExpressionMap -> MonkeyName -> (ExpressionMap, ExpressionMap, [MonkeyName])
+updateExpressionMapSingle expressionMap buildExpressionMap resolveMonkeyName = case findResult of
+  Just item -> updateExpressionMapSingleFound expressionMap buildExpressionMap resolveMonkeyName item
+  Nothing -> (expressionMap, buildExpressionMap, [])
   where
     expressions = Data.Map.toList expressionMap
     findResult = find (\(monkeyName, (name1, _, name2)) -> name1 == resolveMonkeyName || name2 == resolveMonkeyName) expressions
 
-updateExpressionMapSingleFound :: ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, [MonkeyName])
-updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "+", exprMonkeyName2))
-  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "-", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
-  | otherwise = (Data.Map.insert resolveMonkeyName (monkeyName, "-", exprMonkeyName1) deleteFromExpressionMap, [monkeyName])
+updateExpressionMapSingleFound :: ExpressionMap -> ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, ExpressionMap, [MonkeyName])
+updateExpressionMapSingleFound expressionMap buildExpressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "+", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (newExpressionMap, Data.Map.insert resolveMonkeyName (monkeyName, "-", exprMonkeyName2) buildExpressionMap, [monkeyName])
+  | otherwise = (newExpressionMap, Data.Map.insert resolveMonkeyName (monkeyName, "-", exprMonkeyName1) buildExpressionMap, [monkeyName])
   where
-    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
-updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "-", exprMonkeyName2))
-  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "+", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
-  | otherwise = (Data.Map.insert resolveMonkeyName (exprMonkeyName1, "-", monkeyName) deleteFromExpressionMap, [monkeyName])
+    newExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap buildExpressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "-", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (newExpressionMap, Data.Map.insert resolveMonkeyName (monkeyName, "+", exprMonkeyName2) buildExpressionMap, [monkeyName])
+  | otherwise = (newExpressionMap, Data.Map.insert resolveMonkeyName (exprMonkeyName1, "-", monkeyName) buildExpressionMap, [monkeyName])
   where
-    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
-updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "*", exprMonkeyName2))
-  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "/", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
-  | otherwise = (Data.Map.insert resolveMonkeyName (monkeyName, "/", exprMonkeyName1) deleteFromExpressionMap, [monkeyName])
+    newExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap buildExpressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "*", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (newExpressionMap, Data.Map.insert resolveMonkeyName (monkeyName, "/", exprMonkeyName2) buildExpressionMap, [monkeyName])
+  | otherwise = (newExpressionMap, Data.Map.insert resolveMonkeyName (monkeyName, "/", exprMonkeyName1) buildExpressionMap, [monkeyName])
   where
-    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
-updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "/", exprMonkeyName2))
-  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "*", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
-  | otherwise = (Data.Map.insert resolveMonkeyName (exprMonkeyName1, "/", monkeyName) deleteFromExpressionMap, [monkeyName])
+    newExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap buildExpressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "/", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (newExpressionMap, Data.Map.insert resolveMonkeyName (monkeyName, "*", exprMonkeyName2) buildExpressionMap, [monkeyName])
+  | otherwise = (newExpressionMap, Data.Map.insert resolveMonkeyName (exprMonkeyName1, "/", monkeyName) buildExpressionMap, [monkeyName])
   where
-    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
-updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "=", exprMonkeyName2))
-  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (exprMonkeyName2, "+", zeroName) deleteFromExpressionMap, [])
-  | otherwise = (Data.Map.insert resolveMonkeyName (exprMonkeyName1, "+", zeroName) deleteFromExpressionMap, [])
+    newExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap buildExpressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "=", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (newExpressionMap, Data.Map.insert resolveMonkeyName (exprMonkeyName2, "+", zeroName) buildExpressionMap, [])
+  | otherwise = (newExpressionMap, Data.Map.insert resolveMonkeyName (exprMonkeyName1, "+", zeroName) buildExpressionMap, [])
   where
-    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
+    newExpressionMap = Data.Map.delete monkeyName expressionMap
 
 updateExpressionMapSingleFoundMult :: ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, [MonkeyName])
 updateExpressionMapSingleFoundMult expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) = undefined
@@ -112,8 +114,8 @@ updateExpressionMapSingleFoundEq :: ExpressionMap -> MonkeyName -> (MonkeyName, 
 updateExpressionMapSingleFoundEq expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) = undefined
 
 calcResult :: (ExpressionMap, NumberMap) -> Int
-calcResult (expressionMap, numberMap) = case Data.Map.lookup "root" numberMap of
-  Just rootNumber -> rootNumber
+calcResult (expressionMap, numberMap) = case Data.Map.lookup myName numberMap of
+  Just myNumber -> myNumber
   _ -> calcResult $ updateMaps (expressionMap, numberMap)
 
 updateMaps :: (ExpressionMap, NumberMap) -> (ExpressionMap, NumberMap)
