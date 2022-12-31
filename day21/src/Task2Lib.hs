@@ -22,7 +22,7 @@ taskFunc inputLines = do
   updatedExpressionMap <- updateExpressionMap expressionMap
   putStrLn "Updated expression map:"
   print updatedExpressionMap
-  let result = calcResult inputData
+  result <- calcResult (updatedExpressionMap, numberMap)
   putStrLn "Result:"
   print result
 
@@ -113,10 +113,14 @@ updateExpressionMapSingleFoundDiv expressionMap resolveMonkeyName (monkeyName, (
 updateExpressionMapSingleFoundEq :: ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, [MonkeyName])
 updateExpressionMapSingleFoundEq expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) = undefined
 
-calcResult :: (ExpressionMap, NumberMap) -> Int
-calcResult (expressionMap, numberMap) = case Data.Map.lookup myName numberMap of
-  Just myNumber -> myNumber
-  _ -> calcResult $ updateMaps (expressionMap, numberMap)
+calcResult :: (ExpressionMap, NumberMap) -> IO Int
+calcResult (expressionMap, numberMap) = do
+  putStrLn "Calculation iteration:"
+  print expressionMap
+  print numberMap
+  case Data.Map.lookup myName numberMap of
+    Just myNumber -> return myNumber
+    _ -> calcResult $ updateMaps (expressionMap, numberMap)
 
 updateMaps :: (ExpressionMap, NumberMap) -> (ExpressionMap, NumberMap)
 updateMaps (expressionMap, numberMap) = (newExpressionMap, newNumberMap)
