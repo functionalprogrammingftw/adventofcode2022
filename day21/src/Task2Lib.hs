@@ -16,12 +16,15 @@ taskFunc inputLines = do
   print numberMap
   putStrLn "Expression map:"
   print expressionMap
-  let updatedExpressionMap = updateExpressionMapSingle expressionMap myName
+  let updatedExpressionMapSingle = updateExpressionMapSingle expressionMap myName
+  putStrLn "Updated expression map single:"
+  print updatedExpressionMapSingle
+  updatedExpressionMap <- updateExpressionMapMultiple expressionMap [myName]
   putStrLn "Updated expression map:"
   print updatedExpressionMap
-  -- let result = calcResult inputData
-  -- putStrLn "Result:"
-  -- print result
+-- let result = calcResult inputData
+-- putStrLn "Result:"
+-- print result
 
 myName :: MonkeyName
 myName = "humn"
@@ -47,12 +50,19 @@ parseInputLinesFold (expressionMap, numberMap) inputLine
     newNumberMap = Data.Map.insert monkeyName (UtilLib.readInt $ head lineEndSplit) numberMap
     newRootExpressionMap = Data.Map.insert monkeyName (head lineEndSplit, "=", last lineEndSplit) expressionMap
 
-updateExpressionMap :: ExpressionMap -> ExpressionMap
-updateExpressionMap expressionMap = updateExpressionMapMultiple expressionMap [myName]
+-- updateExpressionMap :: ExpressionMap -> ExpressionMap
+-- updateExpressionMap expressionMap = updateExpressionMapMultiple expressionMap [myName]
 
-updateExpressionMapMultiple :: ExpressionMap -> [MonkeyName] -> ExpressionMap
-updateExpressionMapMultiple expressionMap [] = expressionMap
-updateExpressionMapMultiple expressionMap (resolveMonkeyName : resolveMonkeyNames) =
+updateExpressionMapMultiple :: ExpressionMap -> [MonkeyName] -> IO ExpressionMap
+updateExpressionMapMultiple expressionMap [] = do
+  putStrLn "Called with expression map and no names"
+  print expressionMap
+  putStrLn "Finished"
+  return expressionMap
+updateExpressionMapMultiple expressionMap (resolveMonkeyName : resolveMonkeyNames) = do
+  putStrLn "Called with expression map and names"
+  print expressionMap
+  print (resolveMonkeyName : resolveMonkeyNames)
   updateExpressionMapMultiple newExpressionMap (resolveMonkeyNames ++ newResolveMonkeyNames)
   where
     (newExpressionMap, newResolveMonkeyNames) = updateExpressionMapSingle expressionMap resolveMonkeyName
