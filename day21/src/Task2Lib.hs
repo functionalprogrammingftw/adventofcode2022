@@ -5,29 +5,36 @@ import Data.Char (ord)
 import qualified Data.HashSet (HashSet, delete, empty, fromList, insert, isSubsetOf, member, singleton, union)
 import Data.List (any, elemIndex, find, findIndex, foldl', insert, intercalate, nub, stripPrefix)
 import Data.List.Split (chunk, split, splitOn)
-import qualified Data.Map (Map, empty, filterWithKey, insert, lookup, notMember, toList)
+import qualified Data.Map (Map, delete, empty, filterWithKey, insert, lookup, notMember, toList)
 import Data.Maybe (catMaybes, fromJust)
 import UtilLib (anyIndexed, countTrueGrid, every, filterIndexed, readInt, replaceNth)
 
 taskFunc :: [String] -> IO ()
 taskFunc inputLines = do
-  let inputData = parseInputLines inputLines
-  putStrLn "Input data:"
-  print inputData
-  -- let updatedMaps = updateMaps inputData
-  -- putStrLn "Updated maps:"
-  -- print updatedMaps
-  let result = calcResult inputData
-  putStrLn "Result:"
-  print result
+  let inputData@(expressionMap, numberMap) = parseInputLines inputLines
+  putStrLn "Number map:"
+  print numberMap
+  putStrLn "Expression map:"
+  print expressionMap
+  let updatedExpressionMap = updateExpressionMapSingle expressionMap myName
+  putStrLn "Updated expression map:"
+  print updatedExpressionMap
+  -- let result = calcResult inputData
+  -- putStrLn "Result:"
+  -- print result
 
-myName :: String
+myName :: MonkeyName
 myName = "humn"
 
-parseInputLines :: [String] -> (ExpressionMap, NumberMap)
-parseInputLines = foldl' parseInputLinesFold (Data.Map.empty, Data.Map.empty)
+zeroName :: MonkeyName
+zeroName = "zero"
 
-parseInputLinesFold :: (ExpressionMap, NumberMap) -> String -> (ExpressionMap, NumberMap)
+parseInputLines :: [String] -> (ExpressionMap, NumberMap)
+parseInputLines inputLines = (expressionMap, Data.Map.insert zeroName 0 numberMap)
+  where
+    (expressionMap, numberMap) = foldl' parseInputLinesFold (Data.Map.empty, Data.Map.empty) inputLines
+
+parseInputLinesFold :: (ExpressionMap, NumberMap) -> MonkeyName -> (ExpressionMap, NumberMap)
 parseInputLinesFold (expressionMap, numberMap) inputLine
   | length lineEndSplit == 3 && monkeyName == "root" = (newRootExpressionMap, numberMap)
   | length lineEndSplit == 3 = (newExpressionMap, numberMap)
@@ -43,25 +50,56 @@ parseInputLinesFold (expressionMap, numberMap) inputLine
 updateExpressionMap :: ExpressionMap -> ExpressionMap
 updateExpressionMap expressionMap = updateExpressionMapMultiple expressionMap [myName]
 
-updateExpressionMapMultiple :: ExpressionMap -> [String] -> ExpressionMap
+updateExpressionMapMultiple :: ExpressionMap -> [MonkeyName] -> ExpressionMap
 updateExpressionMapMultiple expressionMap [] = expressionMap
 updateExpressionMapMultiple expressionMap (resolveMonkeyName : resolveMonkeyNames) =
   updateExpressionMapMultiple newExpressionMap (resolveMonkeyNames ++ newResolveMonkeyNames)
   where
     (newExpressionMap, newResolveMonkeyNames) = updateExpressionMapSingle expressionMap resolveMonkeyName
 
-updateExpressionMapSingle :: ExpressionMap -> String -> (ExpressionMap, [String])
-updateExpressionMapSingle expressionMap resolveMonkeyName = undefined
+updateExpressionMapSingle :: ExpressionMap -> MonkeyName -> (ExpressionMap, [MonkeyName])
+updateExpressionMapSingle expressionMap resolveMonkeyName = case findResult of
+  Just item -> updateExpressionMapSingleFound expressionMap resolveMonkeyName item
+  Nothing -> (expressionMap, [])
   where
     expressions = Data.Map.toList expressionMap
-    (monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) =
-      fromJust $ find (\(monkeyName, (name1, _, name2)) -> name1 == resolveMonkeyName || name2 == resolveMonkeyName) expressions
-    (newMonkeyName, newExpression)
-      | operator == "+" = undefined
-      | operator == "-" = undefined
-      | operator == "*" = undefined
-      | operator == "/" = undefined
-      | operator == "=" = undefined
+    findResult = find (\(monkeyName, (name1, _, name2)) -> name1 == resolveMonkeyName || name2 == resolveMonkeyName) expressions
+
+updateExpressionMapSingleFound :: ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, [MonkeyName])
+updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "+", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "-", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
+  | otherwise = (Data.Map.insert resolveMonkeyName (monkeyName, "-", exprMonkeyName1) deleteFromExpressionMap, [monkeyName])
+  where
+    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "-", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "+", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
+  | otherwise = (Data.Map.insert resolveMonkeyName (exprMonkeyName1, "-", monkeyName) deleteFromExpressionMap, [monkeyName])
+  where
+    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "*", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "/", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
+  | otherwise = (Data.Map.insert resolveMonkeyName (monkeyName, "/", exprMonkeyName1) deleteFromExpressionMap, [monkeyName])
+  where
+    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "/", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (monkeyName, "*", exprMonkeyName2) deleteFromExpressionMap, [monkeyName])
+  | otherwise = (Data.Map.insert resolveMonkeyName (exprMonkeyName1, "/", monkeyName) deleteFromExpressionMap, [monkeyName])
+  where
+    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
+updateExpressionMapSingleFound expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, "=", exprMonkeyName2))
+  | resolveMonkeyName == exprMonkeyName1 = (Data.Map.insert resolveMonkeyName (exprMonkeyName2, "+", zeroName) deleteFromExpressionMap, [])
+  | otherwise = (Data.Map.insert resolveMonkeyName (exprMonkeyName1, "+", zeroName) deleteFromExpressionMap, [])
+  where
+    deleteFromExpressionMap = Data.Map.delete monkeyName expressionMap
+
+updateExpressionMapSingleFoundMult :: ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, [MonkeyName])
+updateExpressionMapSingleFoundMult expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) = undefined
+
+updateExpressionMapSingleFoundDiv :: ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, [MonkeyName])
+updateExpressionMapSingleFoundDiv expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) = undefined
+
+updateExpressionMapSingleFoundEq :: ExpressionMap -> MonkeyName -> (MonkeyName, Expression) -> (ExpressionMap, [MonkeyName])
+updateExpressionMapSingleFoundEq expressionMap resolveMonkeyName (monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) = undefined
 
 calcResult :: (ExpressionMap, NumberMap) -> Int
 calcResult (expressionMap, numberMap) = case Data.Map.lookup "root" numberMap of
@@ -82,7 +120,7 @@ updateNumberMap ((monkeyName, (exprMonkeyName1, operator, exprMonkeyName2)) : ex
       (Just number1, Just number2) -> Data.Map.insert monkeyName (performCalculation number1 operator number2) numberMap
       _ -> numberMap
 
-performCalculation :: Int -> String -> Int -> Int
+performCalculation :: Int -> Operator -> Int -> Int
 performCalculation number1 operator number2
   | operator == "+" = number1 + number2
   | operator == "-" = number1 - number2
